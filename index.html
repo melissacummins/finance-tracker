@@ -617,6 +617,68 @@
                 </div>
             </div>
 
+            <!-- Projection History Management -->
+            <div class="card">
+                <h3>📈 Projection Accuracy Tracking</h3>
+                <p>Manually enter past month projections and actuals to track forecasting accuracy over time.</p>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <button class="btn" onclick="showAddProjectionForm()">Add Historical Month</button>
+                    <button class="btn btn-secondary" onclick="importProjectionData()">Import from CSV</button>
+                    <button class="btn btn-secondary" onclick="exportProjectionData()">Export Data</button>
+                </div>
+
+                <!-- Add Projection Form -->
+                <div id="addProjectionForm" class="card hidden" style="background: #f0fff4; border: 2px solid #059669; margin-bottom: 20px;">
+                    <h4>Add Historical Projection Data</h4>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label>Month & Year</label>
+                            <input type="month" id="projectionMonth" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Seasonal Factor</label>
+                            <input type="number" id="projectionSeasonalFactor" class="form-control" step="0.1" min="0.1" max="3.0" placeholder="1.0">
+                        </div>
+                    </div>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label>Baseline Projection</label>
+                            <input type="number" id="projectionBaseline" class="form-control" step="0.01" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Actual Income</label>
+                            <input type="number" id="projectionActual" class="form-control" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn" onclick="saveProjectionData()">Save Data</button>
+                        <button class="btn btn-secondary" onclick="cancelAddProjection()">Cancel</button>
+                    </div>
+                </div>
+
+                <!-- Projection History Table -->
+                <div id="projectionHistoryTable">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th>Seasonal Factor</th>
+                                <th>Conservative</th>
+                                <th>Baseline</th>
+                                <th>Optimistic</th>
+                                <th>Actual</th>
+                                <th>Accuracy</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="projectionHistoryBody">
+                            <!-- Will be populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div class="grid">
                 <div class="card">
                     <h3>Income vs Expenses</h3>
@@ -737,6 +799,7 @@
         let rules = [];
         let subscriptions = [];
         let seasonalFactors = {}; // Store monthly seasonal factors
+        let projectionHistory = {}; // Store historical projections and actuals for accuracy tracking
         let currentUser = null;
         let firebaseReady = false;
 
@@ -820,6 +883,7 @@
                     rules = data.rules || [];
                     subscriptions = data.subscriptions || [];
                     seasonalFactors = data.seasonalFactors || {};
+                    projectionHistory = data.projectionHistory || {};
                 } else {
                     await saveUserData();
                 }
@@ -844,6 +908,7 @@
                     rules,
                     subscriptions,
                     seasonalFactors,
+                    projectionHistory,
                     lastSaved: new Date().toISOString(),
                     userId: currentUser.uid
                 };
@@ -1027,10 +1092,10 @@
                 </div>
                 
                 <div style="background: #f7fafc; padding: 10px; border-radius: 6px; font-size: 0.9em;">
-                    ${progressVsExpected >= 120 ? '🎉 Excellent! You\'re ahead of projections.' :
-                      progressVsExpected >= 100 ? '✅ Good! You\'re on track.' :
-                      progressVsExpected >= 80 ? '⚠️ Slightly behind, but there\'s time to catch up.' :
-                      '🔴 Significantly behind projections. Consider reviewing your strategy.'}
+                    ${progressVsExpected >= 120 ? '🎉 Ahead of projections' :
+                      progressVsExpected >= 100 ? '✅ On track with projections' :
+                      progressVsExpected >= 80 ? '⚠️ Behind projections' :
+                      '🔴 Significantly behind projections'}
                 </div>
             `;
         }
@@ -1090,6 +1155,7 @@
             // Update income analysis when cash flow tab is shown
             if (tabName === 'cashflow') {
                 updateIncomeVarianceAnalysis();
+                updateProjectionHistoryTable();
             }
         }
 
@@ -2251,6 +2317,7 @@
                 rules,
                 subscriptions,
                 seasonalFactors,
+                projectionHistory,
                 exportDate: new Date().toISOString()
             }, null, 2);
             
@@ -2281,6 +2348,7 @@
                             rules = data.rules || [];
                             subscriptions = data.subscriptions || [];
                             seasonalFactors = data.seasonalFactors || {};
+                            projectionHistory = data.projectionHistory || {};
                             
                             updateDashboard();
                             updateTransactionsTable();
@@ -2812,6 +2880,293 @@
         updateRulesView();
         updateSubscriptionsView();
         updateIncomeVarianceAnalysis();
+
+        // Projection History Management Functions
+        function showAddProjectionForm() {
+            const form = document.getElementById('addProjectionForm');
+            form.classList.remove('hidden');
+            
+            // Set default month to last month
+            const lastMonth = new Date();
+            lastMonth.setMonth(lastMonth.getMonth() - 1);
+            document.getElementById('projectionMonth').value = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
+            
+            updateProjectionHistoryTable();
+        }
+
+        function cancelAddProjection() {
+            document.getElementById('addProjectionForm').classList.add('hidden');
+            // Clear form
+            document.getElementById('projectionMonth').value = '';
+            document.getElementById('projectionSeasonalFactor').value = '';
+            document.getElementById('projectionBaseline').value = '';
+            document.getElementById('projectionActual').value = '';
+        }
+
+        function saveProjectionData() {
+            const month = document.getElementById('projectionMonth').value;
+            const seasonalFactor = parseFloat(document.getElementById('projectionSeasonalFactor').value);
+            const baseline = parseFloat(document.getElementById('projectionBaseline').value);
+            const actual = parseFloat(document.getElementById('projectionActual').value);
+
+            if (!month) {
+                alert('Please select a month');
+                return;
+            }
+            if (isNaN(seasonalFactor) || seasonalFactor < 0.1 || seasonalFactor > 3.0) {
+                alert('Please enter a valid seasonal factor (0.1 - 3.0)');
+                return;
+            }
+            if (isNaN(baseline) || baseline < 0) {
+                alert('Please enter a valid baseline projection');
+                return;
+            }
+            if (isNaN(actual) || actual < 0) {
+                alert('Please enter a valid actual income');
+                return;
+            }
+
+            const conservative = baseline * 0.75;
+            const optimistic = baseline * 1.25;
+            
+            // Calculate accuracy - which projection was closest?
+            const conservativeDiff = Math.abs(actual - conservative);
+            const baselineDiff = Math.abs(actual - baseline);
+            const optimisticDiff = Math.abs(actual - optimistic);
+            
+            let accuracyType = 'Baseline';
+            let accuracyPercentage = baselineDiff / baseline * 100;
+            
+            if (conservativeDiff < baselineDiff && conservativeDiff < optimisticDiff) {
+                accuracyType = 'Conservative';
+                accuracyPercentage = conservativeDiff / conservative * 100;
+            } else if (optimisticDiff < baselineDiff) {
+                accuracyType = 'Optimistic';
+                accuracyPercentage = optimisticDiff / optimistic * 100;
+            }
+
+            projectionHistory[month] = {
+                seasonalFactor: seasonalFactor,
+                baseline: baseline,
+                conservative: conservative,
+                optimistic: optimistic,
+                actual: actual,
+                accuracyType: accuracyType,
+                accuracyPercentage: accuracyPercentage,
+                created: new Date().toISOString()
+            };
+
+            // Also update seasonal factors for this month
+            seasonalFactors[month] = seasonalFactor;
+
+            updateProjectionHistoryTable();
+            updateSeasonalFactorHistory();
+            saveUserData();
+            cancelAddProjection();
+            
+            alert(`Projection data for ${month} saved successfully!`);
+        }
+
+        function updateProjectionHistoryTable() {
+            const tbody = document.getElementById('projectionHistoryBody');
+            if (!tbody) return;
+            
+            const sortedMonths = Object.keys(projectionHistory).sort().reverse(); // Newest first
+            
+            if (sortedMonths.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #718096;">No historical data yet. Add past month data to track accuracy.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = sortedMonths.map(month => {
+                const data = projectionHistory[month];
+                const [year, monthNum] = month.split('-');
+                const monthName = new Date(year, monthNum - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                
+                // Determine which projection was most accurate
+                const accuracyColor = data.accuracyPercentage <= 10 ? '#059669' : 
+                                    data.accuracyPercentage <= 25 ? '#f59e0b' : '#dc2626';
+                
+                return `
+                    <tr>
+                        <td style="font-weight: bold;">${monthName}</td>
+                        <td>${data.seasonalFactor.toFixed(1)}</td>
+                        <td>${formatCurrency(data.conservative)}</td>
+                        <td style="font-weight: bold;">${formatCurrency(data.baseline)}</td>
+                        <td>${formatCurrency(data.optimistic)}</td>
+                        <td style="font-weight: bold; color: ${data.actual >= data.baseline ? '#059669' : '#dc2626'};">${formatCurrency(data.actual)}</td>
+                        <td style="color: ${accuracyColor};">
+                            <div style="font-weight: bold;">${data.accuracyType}</div>
+                            <div style="font-size: 0.8em;">±${data.accuracyPercentage.toFixed(1)}%</div>
+                        </td>
+                        <td>
+                            <button class="btn btn-secondary" onclick="editProjectionData('${month}')" style="padding: 3px 8px; font-size: 0.8em;">Edit</button>
+                            <button class="btn btn-danger" onclick="deleteProjectionData('${month}')" style="padding: 3px 8px; font-size: 0.8em;">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function editProjectionData(month) {
+            const data = projectionHistory[month];
+            if (!data) return;
+
+            document.getElementById('projectionMonth').value = month;
+            document.getElementById('projectionSeasonalFactor').value = data.seasonalFactor;
+            document.getElementById('projectionBaseline').value = data.baseline;
+            document.getElementById('projectionActual').value = data.actual;
+            
+            document.getElementById('addProjectionForm').classList.remove('hidden');
+        }
+
+        function deleteProjectionData(month) {
+            if (confirm(`Delete projection data for ${month}?`)) {
+                delete projectionHistory[month];
+                updateProjectionHistoryTable();
+                saveUserData();
+                alert('Projection data deleted');
+            }
+        }
+
+        function importProjectionData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.csv';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        parseProjectionCSV(e.target.result);
+                    } catch (error) {
+                        alert('Error reading CSV file: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function parseProjectionCSV(csvText) {
+            const lines = csvText.split('\n').filter(line => line.trim());
+            if (lines.length < 4) {
+                alert('CSV must have at least 4 rows (Income, Total, Seasonal Factor, etc.)');
+                return;
+            }
+
+            // Parse the CSV structure similar to your uploaded file
+            const months = lines[0].split(',').slice(1, -1); // Skip first and last column
+            const totals = lines[1].split(',').slice(1, -1);
+            const seasonalFactors = lines[2].split(',').slice(1, -1);
+            const baselines = lines[3].split(',').slice(1, -1);
+            const actuals = lines.length > 6 ? lines[6].split(',').slice(1, -1) : [];
+
+            let importedCount = 0;
+            const currentYear = new Date().getFullYear();
+
+            months.forEach((month, index) => {
+                if (!month.trim()) return;
+                
+                const monthNum = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 
+                                'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'].indexOf(month.trim()) + 1;
+                
+                if (monthNum === 0) return; // Skip invalid months
+                
+                const monthKey = `${currentYear}-${String(monthNum).padStart(2, '0')}`;
+                
+                const seasonalFactor = parseFloat(seasonalFactors[index]) || 1.0;
+                const baseline = parseFloat(baselines[index]?.replace(/[$,\s]/g, '')) || 0;
+                const actual = actuals[index] ? parseFloat(actuals[index].replace(/[$,\s]/g, '')) : 0;
+                
+                if (baseline > 0) {
+                    const conservative = baseline * 0.75;
+                    const optimistic = baseline * 1.25;
+                    
+                    // Calculate accuracy if we have actual data
+                    let accuracyType = 'N/A';
+                    let accuracyPercentage = 0;
+                    
+                    if (actual > 0) {
+                        const conservativeDiff = Math.abs(actual - conservative);
+                        const baselineDiff = Math.abs(actual - baseline);
+                        const optimisticDiff = Math.abs(actual - optimistic);
+                        
+                        accuracyType = 'Baseline';
+                        accuracyPercentage = baselineDiff / baseline * 100;
+                        
+                        if (conservativeDiff < baselineDiff && conservativeDiff < optimisticDiff) {
+                            accuracyType = 'Conservative';
+                            accuracyPercentage = conservativeDiff / conservative * 100;
+                        } else if (optimisticDiff < baselineDiff) {
+                            accuracyType = 'Optimistic';
+                            accuracyPercentage = optimisticDiff / optimistic * 100;
+                        }
+                    }
+
+                    projectionHistory[monthKey] = {
+                        seasonalFactor: seasonalFactor,
+                        baseline: baseline,
+                        conservative: conservative,
+                        optimistic: optimistic,
+                        actual: actual,
+                        accuracyType: accuracyType,
+                        accuracyPercentage: accuracyPercentage,
+                        imported: true,
+                        created: new Date().toISOString()
+                    };
+
+                    seasonalFactors[monthKey] = seasonalFactor;
+                    importedCount++;
+                }
+            });
+
+            updateProjectionHistoryTable();
+            updateSeasonalFactorHistory();
+            saveUserData();
+            
+            alert(`Imported ${importedCount} months of projection data!`);
+        }
+
+        function exportProjectionData() {
+            if (Object.keys(projectionHistory).length === 0) {
+                alert('No projection data to export');
+                return;
+            }
+
+            const sortedMonths = Object.keys(projectionHistory).sort();
+            const months = ['Month', ...sortedMonths.map(m => {
+                const [year, month] = m.split('-');
+                return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+            })];
+            
+            const seasonalFactorRow = ['Seasonal Factor', ...sortedMonths.map(m => projectionHistory[m].seasonalFactor)];
+            const baselineRow = ['Baseline Projection', ...sortedMonths.map(m => `$${projectionHistory[m].baseline.toFixed(2)}`)];
+            const conservativeRow = ['Conservative (-25%)', ...sortedMonths.map(m => `$${projectionHistory[m].conservative.toFixed(2)}`)];
+            const optimisticRow = ['Optimistic (+25%)', ...sortedMonths.map(m => `$${projectionHistory[m].optimistic.toFixed(2)}`)];
+            const actualRow = ['Actual', ...sortedMonths.map(m => projectionHistory[m].actual > 0 ? `$${projectionHistory[m].actual.toFixed(2)}` : '')];
+            const accuracyRow = ['Best Projection', ...sortedMonths.map(m => projectionHistory[m].accuracyType)];
+
+            const csvContent = [
+                months.join(','),
+                seasonalFactorRow.join(','),
+                baselineRow.join(','),
+                conservativeRow.join(','),
+                optimisticRow.join(','),
+                actualRow.join(','),
+                accuracyRow.join(',')
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `projection-history-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
     </script>
 </body>
 </html>
