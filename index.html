@@ -423,7 +423,12 @@
         <div id="rules" class="tab-content">
             <div class="card">
                 <h3>Categorization Rules</h3>
-                <button class="btn" onclick="addRule()">Add New Rule</button>
+                <p>Create rules to automatically categorize transactions based on description patterns. Rules are applied in order when importing new transactions.</p>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="btn" onclick="addRule()">Add New Rule</button>
+                    <button class="btn btn-secondary" onclick="applyRulesToExistingTransactions()">Apply Rules to Existing Transactions</button>
+                </div>
                 
                 <div id="rulesList"></div>
             </div>
@@ -840,6 +845,7 @@
                 { field: 'date', label: 'Date', required: true },
                 { field: 'description', label: 'Description', required: true },
                 { field: 'amount', label: 'Amount', required: true },
+                { field: 'transactionType', label: 'Transaction Type (Debit/Credit)', required: false },
                 { field: 'category', label: 'Category', required: false }
             ];
 
@@ -859,21 +865,24 @@
 
         function autoMapColumns() {
             const commonMappings = {
-                date: ['date', 'transaction date', 'posted date', 'trans date'],
-                description: ['description', 'memo', 'payee', 'merchant', 'details'],
-                amount: ['amount', 'transaction amount', 'debit', 'credit'],
-                category: ['category', 'transaction category', 'type']
+                date: ['date', 'transaction date', 'posted date', 'trans date', 'posting date'],
+                description: ['description', 'memo', 'payee', 'merchant', 'details', 'transaction description'],
+                amount: ['amount', 'transaction amount', 'debit', 'credit', 'transaction amt'],
+                transactionType: ['transaction type', 'type', 'debit/credit', 'dr/cr', 'transaction kind'],
+                category: ['category', 'transaction category', 'classification']
             };
 
             Object.keys(commonMappings).forEach(field => {
                 const select = document.getElementById(`mapping_${field}`);
-                const matchingHeader = csvHeaders.find(header => 
-                    commonMappings[field].some(pattern => 
-                        header.toLowerCase().includes(pattern.toLowerCase())
-                    )
-                );
-                if (matchingHeader) {
-                    select.value = matchingHeader;
+                if (select) {
+                    const matchingHeader = csvHeaders.find(header => 
+                        commonMappings[field].some(pattern => 
+                            header.toLowerCase().includes(pattern.toLowerCase())
+                        )
+                    );
+                    if (matchingHeader) {
+                        select.value = matchingHeader;
+                    }
                 }
             });
         }
@@ -883,6 +892,7 @@
                 date: document.getElementById('mapping_date').value,
                 description: document.getElementById('mapping_description').value,
                 amount: document.getElementById('mapping_amount').value,
+                transactionType: document.getElementById('mapping_transactionType').value,
                 category: document.getElementById('mapping_category').value
             };
 
@@ -893,11 +903,13 @@
 
             const accountType = document.getElementById('accountType').value;
             let importedCount = 0;
+            let detectedSubscriptions = [];
 
             csvData.forEach(row => {
                 const dateStr = row[mappings.date];
                 const description = row[mappings.description];
                 const amountStr = row[mappings.amount];
+                const transactionType = row[mappings.transactionType] || '';
                 const category = row[mappings.category] || 'Uncategorized';
 
                 if (!dateStr || !description || !amountStr) return;
@@ -911,24 +923,38 @@
                     return;
                 }
 
-                // Parse amount
+                // Parse amount and handle transaction type
                 let amount = parseFloat(amountStr.replace(/[$,]/g, ''));
                 if (isNaN(amount)) {
                     console.warn('Invalid amount:', amountStr);
                     return;
                 }
 
-                // For credit cards, flip the sign if needed
-                if (accountType === 'credit' && amount > 0) {
-                    amount = -amount;
+                // Handle transaction type (debit/credit)
+                if (mappings.transactionType && transactionType) {
+                    const type = transactionType.toLowerCase();
+                    if (type.includes('debit') || type.includes('withdrawal') || type.includes('payment')) {
+                        amount = -Math.abs(amount); // Make negative for debits
+                    } else if (type.includes('credit') || type.includes('deposit') || type.includes('income')) {
+                        amount = Math.abs(amount); // Make positive for credits
+                    }
+                } else {
+                    // For credit cards, flip the sign if needed (fallback)
+                    if (accountType === 'credit' && amount > 0) {
+                        amount = -amount;
+                    }
                 }
+
+                // Apply categorization rules
+                const appliedCategory = applyCategorationRules(description, category);
 
                 const transaction = {
                     id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
                     date: date,
                     description: description.trim(),
                     amount: amount,
-                    category: category.trim(),
+                    category: appliedCategory,
+                    transactionType: transactionType,
                     accountType: accountType,
                     imported: true,
                     importDate: new Date().toISOString()
@@ -944,13 +970,24 @@
                 if (!isDuplicate) {
                     transactions.push(transaction);
                     importedCount++;
+
+                    // Detect potential subscriptions (negative amounts, recurring patterns)
+                    if (amount < 0) {
+                        detectSubscription(transaction, detectedSubscriptions);
+                    }
                 }
             });
 
+            // Process detected subscriptions
+            if (detectedSubscriptions.length > 0) {
+                processDetectedSubscriptions(detectedSubscriptions);
+            }
+
             if (importedCount > 0) {
-                alert(`Successfully imported ${importedCount} transactions!`);
+                alert(`Successfully imported ${importedCount} transactions!${detectedSubscriptions.length > 0 ? ` Found ${detectedSubscriptions.length} potential subscriptions.` : ''}`);
                 updateDashboard();
                 updateTransactionsTable();
+                updateSubscriptionsView();
                 saveUserData();
                 
                 // Reset the import form
@@ -961,6 +998,114 @@
             } else {
                 alert('No new transactions were imported. They may already exist.');
             }
+        }
+
+        function applyCategorationRules(description, defaultCategory) {
+            const desc = description.toLowerCase();
+            
+            // Apply rules in order of priority
+            for (const rule of rules) {
+                if (rule.conditions.some(condition => {
+                    switch (condition.type) {
+                        case 'contains':
+                            return desc.includes(condition.value.toLowerCase());
+                        case 'starts_with':
+                            return desc.startsWith(condition.value.toLowerCase());
+                        case 'ends_with':
+                            return desc.endsWith(condition.value.toLowerCase());
+                        case 'equals':
+                            return desc === condition.value.toLowerCase();
+                        default:
+                            return false;
+                    }
+                })) {
+                    return rule.category;
+                }
+            }
+            
+            return defaultCategory;
+        }
+
+        function detectSubscription(transaction, detectedSubscriptions) {
+            const desc = transaction.description.toLowerCase();
+            
+            // Common subscription keywords
+            const subscriptionKeywords = [
+                'netflix', 'spotify', 'amazon prime', 'hulu', 'disney', 'apple music',
+                'adobe', 'microsoft', 'google', 'dropbox', 'office 365',
+                'gym', 'fitness', 'insurance', 'phone', 'internet', 'cable',
+                'subscription', 'monthly', 'annual', 'recurring'
+            ];
+
+            const isLikelySubscription = subscriptionKeywords.some(keyword => desc.includes(keyword)) ||
+                                      desc.includes('auto pay') || 
+                                      desc.includes('recurring') ||
+                                      desc.includes('monthly');
+
+            if (isLikelySubscription) {
+                // Check if we already detected this vendor
+                const existingSubscription = detectedSubscriptions.find(sub => 
+                    sub.vendor.toLowerCase() === transaction.description.toLowerCase()
+                );
+
+                if (existingSubscription) {
+                    existingSubscription.transactions.push(transaction);
+                    // Update amount if it's different (price change)
+                    if (Math.abs(existingSubscription.amount - Math.abs(transaction.amount)) > 0.01) {
+                        existingSubscription.priceChanged = true;
+                        existingSubscription.newAmount = Math.abs(transaction.amount);
+                    }
+                } else {
+                    detectedSubscriptions.push({
+                        vendor: transaction.description,
+                        amount: Math.abs(transaction.amount),
+                        category: transaction.category,
+                        lastDate: transaction.date,
+                        transactions: [transaction],
+                        priceChanged: false
+                    });
+                }
+            }
+        }
+
+        function processDetectedSubscriptions(detectedSubscriptions) {
+            detectedSubscriptions.forEach(detected => {
+                // Check if subscription already exists
+                const existingSubscription = subscriptions.find(sub => 
+                    sub.vendor.toLowerCase() === detected.vendor.toLowerCase()
+                );
+
+                if (!existingSubscription) {
+                    // Calculate frequency based on transaction dates
+                    let frequency = 'monthly'; // default
+                    if (detected.transactions.length > 1) {
+                        const dates = detected.transactions.map(t => new Date(t.date)).sort();
+                        const daysBetween = (dates[1] - dates[0]) / (1000 * 60 * 60 * 24);
+                        if (daysBetween > 300) frequency = 'annual';
+                        else if (daysBetween > 80) frequency = 'quarterly';
+                        else frequency = 'monthly';
+                    }
+
+                    subscriptions.push({
+                        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                        vendor: detected.vendor,
+                        amount: detected.amount,
+                        frequency: frequency,
+                        category: detected.category,
+                        lastCharge: detected.lastDate,
+                        status: 'active',
+                        autoDetected: true,
+                        priceChanged: detected.priceChanged,
+                        newAmount: detected.newAmount || detected.amount,
+                        detectedDate: new Date().toISOString()
+                    });
+                } else if (detected.priceChanged) {
+                    // Update existing subscription with new amount
+                    existingSubscription.amount = detected.newAmount;
+                    existingSubscription.priceChanged = true;
+                    existingSubscription.lastCharge = detected.lastDate;
+                }
+            });
         }
 
         // Other functions
@@ -1067,12 +1212,330 @@
             input.click();
         }
 
-        function addSubscription() { alert('Subscription management coming soon'); }
-        function addRule() { alert('Rules management coming soon'); }
+        function addSubscription() { 
+            const vendor = prompt('Enter vendor/service name:');
+            if (!vendor) return;
+
+            const amount = prompt('Enter monthly amount (without $):');
+            if (!amount || isNaN(parseFloat(amount))) {
+                alert('Please enter a valid amount');
+                return;
+            }
+
+            const frequency = prompt('Frequency:\n1. Monthly\n2. Quarterly\n3. Annual\nEnter number (1-3):', '1');
+            const frequencyMap = {'1': 'monthly', '2': 'quarterly', '3': 'annual'};
+
+            const allCategories = [...categories.expense];
+            const categoryIndex = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, '1');
+            const category = allCategories[parseInt(categoryIndex) - 1] || 'Services';
+
+            const subscription = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                vendor: vendor,
+                amount: parseFloat(amount),
+                frequency: frequencyMap[frequency] || 'monthly',
+                category: category,
+                status: 'active',
+                nextCharge: calculateNextCharge(frequencyMap[frequency] || 'monthly'),
+                autoDetected: false,
+                created: new Date().toISOString()
+            };
+
+            subscriptions.push(subscription);
+            updateSubscriptionsView();
+            saveUserData();
+        }
+
+        function calculateNextCharge(frequency) {
+            const now = new Date();
+            switch (frequency) {
+                case 'monthly':
+                    return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()).toISOString().split('T')[0];
+                case 'quarterly':
+                    return new Date(now.getFullYear(), now.getMonth() + 3, now.getDate()).toISOString().split('T')[0];
+                case 'annual':
+                    return new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString().split('T')[0];
+                default:
+                    return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()).toISOString().split('T')[0];
+            }
+        }
+
+        function updateSubscriptionsView() {
+            const subscriptionsList = document.getElementById('subscriptionsList');
+            
+            if (subscriptions.length === 0) {
+                subscriptionsList.innerHTML = '<p>No subscriptions found. Add subscriptions manually or import transactions to auto-detect them.</p>';
+                return;
+            }
+
+            // Calculate totals
+            const monthlyTotal = subscriptions
+                .filter(sub => sub.status === 'active')
+                .reduce((total, sub) => {
+                    switch (sub.frequency) {
+                        case 'monthly': return total + sub.amount;
+                        case 'quarterly': return total + (sub.amount / 3);
+                        case 'annual': return total + (sub.amount / 12);
+                        default: return total + sub.amount;
+                    }
+                }, 0);
+
+            const annualTotal = monthlyTotal * 12;
+
+            subscriptionsList.innerHTML = `
+                <div class="grid" style="margin-bottom: 20px;">
+                    <div class="stat-card">
+                        <div class="stat-value">${formatCurrency(monthlyTotal)}</div>
+                        <div class="stat-label">Monthly Total</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${formatCurrency(annualTotal)}</div>
+                        <div class="stat-label">Annual Total</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>Active Subscriptions</h4>
+                    ${subscriptions.filter(sub => sub.status === 'active').map(sub => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #e2e8f0;">
+                            <div>
+                                <strong>${sub.vendor}</strong>
+                                ${sub.autoDetected ? '<span style="background: #e6fffa; color: #234e52; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 10px;">Auto-detected</span>' : ''}
+                                ${sub.priceChanged ? '<span style="background: #fed7d7; color: #742a2a; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 5px;">Price Changed</span>' : ''}
+                                <br>
+                                <small style="color: #718096;">
+                                    ${formatCurrency(sub.amount)} ${sub.frequency} • ${sub.category}
+                                    ${sub.nextCharge ? ` • Next: ${formatDate(sub.nextCharge)}` : ''}
+                                    ${sub.lastCharge ? ` • Last: ${formatDate(sub.lastCharge)}` : ''}
+                                </small>
+                            </div>
+                            <div>
+                                <button class="btn btn-secondary" onclick="editSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Edit</button>
+                                <button class="btn" onclick="toggleSubscriptionStatus('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Pause</button>
+                                <button class="btn btn-danger" onclick="deleteSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Delete</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                ${subscriptions.filter(sub => sub.status !== 'active').length > 0 ? `
+                    <div class="card">
+                        <h4>Paused/Cancelled Subscriptions</h4>
+                        ${subscriptions.filter(sub => sub.status !== 'active').map(sub => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #e2e8f0; opacity: 0.7;">
+                                <div>
+                                    <strong>${sub.vendor}</strong>
+                                    <span style="background: #f7fafc; color: #4a5568; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 10px;">${sub.status}</span>
+                                    <br>
+                                    <small style="color: #718096;">
+                                        ${formatCurrency(sub.amount)} ${sub.frequency} • ${sub.category}
+                                    </small>
+                                </div>
+                                <div>
+                                    <button class="btn btn-secondary" onclick="editSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Edit</button>
+                                    <button class="btn" onclick="toggleSubscriptionStatus('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Reactivate</button>
+                                    <button class="btn btn-danger" onclick="deleteSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Delete</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        function editSubscription(subscriptionId) {
+            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
+            if (!subscription) return;
+
+            const newVendor = prompt('Edit vendor name:', subscription.vendor);
+            if (newVendor !== null) subscription.vendor = newVendor;
+
+            const newAmount = prompt('Edit amount:', subscription.amount);
+            if (newAmount !== null && !isNaN(parseFloat(newAmount))) {
+                subscription.amount = parseFloat(newAmount);
+            }
+
+            const frequency = prompt('Frequency:\n1. Monthly\n2. Quarterly\n3. Annual\nEnter number (1-3):', 
+                subscription.frequency === 'monthly' ? '1' : 
+                subscription.frequency === 'quarterly' ? '2' : '3');
+            const frequencyMap = {'1': 'monthly', '2': 'quarterly', '3': 'annual'};
+            if (frequencyMap[frequency]) {
+                subscription.frequency = frequencyMap[frequency];
+                subscription.nextCharge = calculateNextCharge(subscription.frequency);
+            }
+
+            const allCategories = [...categories.expense];
+            const currentIndex = allCategories.indexOf(subscription.category) + 1;
+            const categoryIndex = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, currentIndex.toString());
+            const category = allCategories[parseInt(categoryIndex) - 1];
+            if (category) subscription.category = category;
+
+            updateSubscriptionsView();
+            saveUserData();
+        }
+
+        function toggleSubscriptionStatus(subscriptionId) {
+            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
+            if (!subscription) return;
+
+            subscription.status = subscription.status === 'active' ? 'paused' : 'active';
+            if (subscription.status === 'active') {
+                subscription.nextCharge = calculateNextCharge(subscription.frequency);
+            }
+
+            updateSubscriptionsView();
+            saveUserData();
+        }
+
+        function deleteSubscription(subscriptionId) {
+            if (confirm('Delete this subscription?')) {
+                subscriptions = subscriptions.filter(sub => sub.id !== subscriptionId);
+                updateSubscriptionsView();
+                saveUserData();
+            }
+        }
+        function addRule() { 
+            const ruleName = prompt('Enter rule name:');
+            if (!ruleName) return;
+
+            const condition = prompt('Enter condition (what to look for in description):');
+            if (!condition) return;
+
+            const conditionType = prompt('Condition type:\n1. Contains\n2. Starts with\n3. Ends with\n4. Equals\nEnter number (1-4):', '1');
+            const typeMap = {'1': 'contains', '2': 'starts_with', '3': 'ends_with', '4': 'equals'};
+            
+            const allCategories = [...categories.income, ...categories.expense];
+            const category = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, '1');
+            const selectedCategory = allCategories[parseInt(category) - 1];
+            
+            if (!selectedCategory) {
+                alert('Invalid category selection');
+                return;
+            }
+
+            const rule = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                name: ruleName,
+                conditions: [{
+                    type: typeMap[conditionType] || 'contains',
+                    value: condition
+                }],
+                category: selectedCategory,
+                active: true,
+                created: new Date().toISOString()
+            };
+
+            rules.push(rule);
+            updateRulesView();
+            saveUserData();
+        }
+
+        function updateRulesView() {
+            const rulesList = document.getElementById('rulesList');
+            
+            rulesList.innerHTML = rules.length ? rules.map(rule => `
+                <div class="card" style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h4 style="margin: 0; color: ${rule.active ? '#4a5568' : '#a0aec0'};">${rule.name}</h4>
+                            <p style="margin: 5px 0; font-size: 0.9em; color: #718096;">
+                                If description <strong>${rule.conditions[0].type.replace('_', ' ')}</strong> 
+                                "<strong>${rule.conditions[0].value}</strong>" → 
+                                Set category to <strong>${rule.category}</strong>
+                            </p>
+                        </div>
+                        <div>
+                            <button class="btn btn-secondary" onclick="toggleRule('${rule.id}')" style="padding: 5px 10px; margin: 2px;">
+                                ${rule.active ? 'Disable' : 'Enable'}
+                            </button>
+                            <button class="btn" onclick="editRule('${rule.id}')" style="padding: 5px 10px; margin: 2px;">Edit</button>
+                            <button class="btn btn-danger" onclick="deleteRule('${rule.id}')" style="padding: 5px 10px; margin: 2px;">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('') : '<p>No rules created yet. Rules help automatically categorize transactions based on description patterns.</p>';
+        }
+
+        function toggleRule(ruleId) {
+            const rule = rules.find(r => r.id === ruleId);
+            if (rule) {
+                rule.active = !rule.active;
+                updateRulesView();
+                saveUserData();
+            }
+        }
+
+        function editRule(ruleId) {
+            const rule = rules.find(r => r.id === ruleId);
+            if (!rule) return;
+
+            const newName = prompt('Edit rule name:', rule.name);
+            if (newName !== null) rule.name = newName;
+
+            const newCondition = prompt('Edit condition:', rule.conditions[0].value);
+            if (newCondition !== null) rule.conditions[0].value = newCondition;
+
+            const conditionType = prompt('Condition type:\n1. Contains\n2. Starts with\n3. Ends with\n4. Equals\nEnter number (1-4):', 
+                rule.conditions[0].type === 'contains' ? '1' : 
+                rule.conditions[0].type === 'starts_with' ? '2' : 
+                rule.conditions[0].type === 'ends_with' ? '3' : '4');
+            
+            const typeMap = {'1': 'contains', '2': 'starts_with', '3': 'ends_with', '4': 'equals'};
+            if (typeMap[conditionType]) {
+                rule.conditions[0].type = typeMap[conditionType];
+            }
+
+            const allCategories = [...categories.income, ...categories.expense];
+            const currentIndex = allCategories.indexOf(rule.category) + 1;
+            const category = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, currentIndex.toString());
+            const selectedCategory = allCategories[parseInt(category) - 1];
+            
+            if (selectedCategory) {
+                rule.category = selectedCategory;
+            }
+
+            updateRulesView();
+            saveUserData();
+        }
+
+        function deleteRule(ruleId) {
+            if (confirm('Delete this rule?')) {
+                rules = rules.filter(r => r.id !== ruleId);
+                updateRulesView();
+                saveUserData();
+            }
+        }
+
+        function applyRulesToExistingTransactions() {
+            if (!confirm('Apply current rules to all existing transactions? This will update categories for matching transactions.')) {
+                return;
+            }
+
+            let updatedCount = 0;
+            transactions.forEach(transaction => {
+                const originalCategory = transaction.category;
+                const newCategory = applyCategorationRules(transaction.description, originalCategory);
+                if (newCategory !== originalCategory) {
+                    transaction.category = newCategory;
+                    updatedCount++;
+                }
+            });
+
+            if (updatedCount > 0) {
+                alert(`Updated ${updatedCount} transactions based on current rules.`);
+                updateDashboard();
+                updateTransactionsTable();
+                saveUserData();
+            } else {
+                alert('No transactions were updated. Rules may not match any existing transactions.');
+            }
+        }
 
         // Initialize the dashboard
         updateDashboard();
         updateCategoriesView();
+        updateRulesView();
+        updateSubscriptionsView();
     </script>
 </body>
 </html>
