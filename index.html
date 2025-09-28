@@ -255,6 +255,20 @@
             background: #fef2f2;
             border-color: #dc2626;
             color: #dc2626;
+            position: relative;
+        }
+
+        .projection-conservative::after {
+            content: "🎯 TARGET";
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #dc2626;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 0.6em;
+            font-weight: bold;
         }
 
         .projection-optimistic {
@@ -579,7 +593,10 @@
                     <div class="variance-card" id="varianceCard">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                             <div>
-                                <h4 style="margin: 0; color: #4a5568;">6-Month Rolling Average</h4>
+                                <h4 style="margin: 0; color: #4a5568;">12-Month Rolling Average</h4>
+                                <div style="font-size: 0.8em; color: #718096; margin-bottom: 5px;">
+                                    (Available data: <span id="availableMonthsCount">0</span> months)
+                                </div>
                                 <div style="font-size: 2em; font-weight: bold; margin: 5px 0;" id="rollingAverage">$0</div>
                             </div>
                             <div style="text-align: right;">
@@ -594,11 +611,12 @@
                                 <div style="font-weight: bold; margin-bottom: 5px;">Conservative</div>
                                 <div style="font-size: 1.3em;" id="conservativeProjection">$0</div>
                                 <div style="font-size: 0.8em; opacity: 0.8;">-25% of baseline</div>
+                                <div style="font-size: 0.7em; margin-top: 5px; font-weight: bold;">🎯 MONTHLY TARGET</div>
                             </div>
                             <div class="projection-card projection-baseline">
                                 <div style="font-weight: bold; margin-bottom: 5px;">Baseline</div>
                                 <div style="font-size: 1.3em;" id="baselineProjection">$0</div>
-                                <div style="font-size: 0.8em; opacity: 0.8;">6-month avg + seasonal</div>
+                                <div style="font-size: 0.8em; opacity: 0.8;">12-month avg + seasonal</div>
                             </div>
                             <div class="projection-card projection-optimistic">
                                 <div style="font-weight: bold; margin-bottom: 5px;">Optimistic</div>
@@ -610,7 +628,7 @@
                 </div>
 
                 <div style="margin-top: 20px;">
-                    <h4>Month-to-Date Performance</h4>
+                    <h4>Month-to-Date Performance vs Conservative Target</h4>
                     <div id="monthlyProgressBar">
                         <!-- Progress bar will be inserted here -->
                     </div>
@@ -668,7 +686,7 @@
                                 <th>Baseline</th>
                                 <th>Optimistic</th>
                                 <th>Actual</th>
-                                <th>Accuracy</th>
+                                <th>vs Conservative Target</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -962,7 +980,7 @@
             document.getElementById('currentSeasonalFactor').value = currentFactor;
         }
 
-        // Income Variance Analysis
+        // Income Variance Analysis with 12-month focus and Conservative target
         function calculateIncomeMetrics() {
             const now = new Date();
             const currentMonthKey = getCurrentMonthKey();
@@ -977,7 +995,8 @@
                     baselineProjection: 0,
                     conservativeProjection: 0,
                     optimisticProjection: 0,
-                    variancePercentage: 0
+                    variancePercentage: 0,
+                    availableMonths: 0
                 };
             }
             
@@ -989,12 +1008,13 @@
                 monthlyIncome[monthKey] = (monthlyIncome[monthKey] || 0) + t.amount;
             });
             
-            // Calculate 6-month rolling average (excluding current incomplete month)
+            // Calculate 12-month rolling average (excluding current incomplete month)
             const sortedMonths = Object.keys(monthlyIncome)
                 .filter(month => month !== currentMonthKey) // Exclude current month
                 .sort()
-                .slice(-6); // Last 6 complete months
+                .slice(-12); // Last 12 complete months (or whatever we have)
             
+            const availableMonths = sortedMonths.length;
             const rollingAverage = sortedMonths.length > 0 
                 ? sortedMonths.reduce((sum, month) => sum + monthlyIncome[month], 0) / sortedMonths.length
                 : 0;
@@ -1010,9 +1030,9 @@
             const conservativeProjection = baselineProjection * 0.75;
             const optimisticProjection = baselineProjection * 1.25;
             
-            // Calculate variance percentage
-            const variancePercentage = baselineProjection > 0 
-                ? ((currentMonthIncome - baselineProjection) / baselineProjection * 100)
+            // Calculate variance percentage against Conservative target (our new goal)
+            const variancePercentage = conservativeProjection > 0 
+                ? ((currentMonthIncome - conservativeProjection) / conservativeProjection * 100)
                 : 0;
             
             return {
@@ -1023,7 +1043,8 @@
                 optimisticProjection,
                 variancePercentage,
                 monthlyIncome,
-                sortedMonths
+                sortedMonths,
+                availableMonths
             };
         }
 
@@ -1032,12 +1053,13 @@
             
             // Update displays
             document.getElementById('rollingAverage').textContent = formatCurrency(metrics.rollingAverage);
+            document.getElementById('availableMonthsCount').textContent = metrics.availableMonths;
             document.getElementById('currentMonthIncome').textContent = formatCurrency(metrics.currentMonthIncome);
             document.getElementById('baselineProjection').textContent = formatCurrency(metrics.baselineProjection);
             document.getElementById('conservativeProjection').textContent = formatCurrency(metrics.conservativeProjection);
             document.getElementById('optimisticProjection').textContent = formatCurrency(metrics.optimisticProjection);
             
-            // Update variance percentage with color coding
+            // Update variance percentage with color coding (vs Conservative target)
             const varianceElement = document.getElementById('variancePercentage');
             const isPositive = metrics.variancePercentage >= 0;
             varianceElement.textContent = `${isPositive ? '+' : ''}${metrics.variancePercentage.toFixed(1)}%`;
@@ -1047,7 +1069,7 @@
             const varianceCard = document.getElementById('varianceCard');
             varianceCard.className = `variance-card ${isPositive ? 'variance-positive' : 'variance-negative'}`;
             
-            // Update monthly progress bar
+            // Update monthly progress bar (vs Conservative target)
             updateMonthlyProgressBar(metrics);
             
             // Update seasonal factor display
@@ -1066,7 +1088,8 @@
             const dayOfMonth = now.getDate();
             const monthProgress = (dayOfMonth / daysInMonth) * 100;
             
-            const expectedAtThisPoint = metrics.baselineProjection * (dayOfMonth / daysInMonth);
+            // Calculate expected progress vs Conservative target (not baseline)
+            const expectedAtThisPoint = metrics.conservativeProjection * (dayOfMonth / daysInMonth);
             const actualProgress = metrics.currentMonthIncome;
             const progressVsExpected = expectedAtThisPoint > 0 ? (actualProgress / expectedAtThisPoint) * 100 : 0;
             
@@ -1083,7 +1106,7 @@
                 
                 <div style="margin-bottom: 15px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span>Income vs Expected (${formatCurrency(actualProgress)} / ${formatCurrency(expectedAtThisPoint)})</span>
+                        <span>Income vs Conservative Target (${formatCurrency(actualProgress)} / ${formatCurrency(expectedAtThisPoint)})</span>
                         <span style="color: ${progressVsExpected >= 100 ? '#059669' : '#dc2626'};">${progressVsExpected.toFixed(1)}%</span>
                     </div>
                     <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
@@ -1092,10 +1115,14 @@
                 </div>
                 
                 <div style="background: #f7fafc; padding: 10px; border-radius: 6px; font-size: 0.9em;">
-                    ${progressVsExpected >= 120 ? '🎉 Ahead of projections' :
-                      progressVsExpected >= 100 ? '✅ On track with projections' :
-                      progressVsExpected >= 80 ? '⚠️ Behind projections' :
-                      '🔴 Significantly behind projections'}
+                    ${progressVsExpected >= 120 ? '🎉 Exceeding Conservative target!' :
+                      progressVsExpected >= 100 ? '✅ Meeting Conservative target' :
+                      progressVsExpected >= 80 ? '⚠️ Below Conservative target' :
+                      '🔴 Significantly below Conservative target'}
+                </div>
+                
+                <div style="margin-top: 10px; font-size: 0.8em; color: #718096; text-align: center;">
+                    Conservative target is your minimum monthly goal. Baseline is ${formatCurrency(metrics.baselineProjection)}.
                 </div>
             `;
         }
@@ -2929,20 +2956,21 @@
             const conservative = baseline * 0.75;
             const optimistic = baseline * 1.25;
             
-            // Calculate accuracy - which projection was closest?
+            // Calculate accuracy vs Conservative target (our new goal)
             const conservativeDiff = Math.abs(actual - conservative);
             const baselineDiff = Math.abs(actual - baseline);
             const optimisticDiff = Math.abs(actual - optimistic);
             
-            let accuracyType = 'Baseline';
-            let accuracyPercentage = baselineDiff / baseline * 100;
+            let accuracyType = 'vs Conservative';
+            let accuracyPercentage = conservativeDiff / conservative * 100;
+            let vsConservativeStatus = 'Met';
             
-            if (conservativeDiff < baselineDiff && conservativeDiff < optimisticDiff) {
-                accuracyType = 'Conservative';
-                accuracyPercentage = conservativeDiff / conservative * 100;
-            } else if (optimisticDiff < baselineDiff) {
-                accuracyType = 'Optimistic';
-                accuracyPercentage = optimisticDiff / optimistic * 100;
+            if (actual >= conservative) {
+                vsConservativeStatus = 'Met ✅';
+                accuracyPercentage = ((actual - conservative) / conservative * 100);
+            } else {
+                vsConservativeStatus = 'Missed ❌';
+                accuracyPercentage = ((conservative - actual) / conservative * 100);
             }
 
             projectionHistory[month] = {
@@ -2953,6 +2981,7 @@
                 actual: actual,
                 accuracyType: accuracyType,
                 accuracyPercentage: accuracyPercentage,
+                vsConservativeStatus: vsConservativeStatus,
                 created: new Date().toISOString()
             };
 
@@ -2983,21 +3012,25 @@
                 const [year, monthNum] = month.split('-');
                 const monthName = new Date(year, monthNum - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
                 
-                // Determine which projection was most accurate
-                const accuracyColor = data.accuracyPercentage <= 10 ? '#059669' : 
-                                    data.accuracyPercentage <= 25 ? '#f59e0b' : '#dc2626';
+                // Determine Conservative target performance
+                const metTarget = data.actual >= data.conservative;
+                const targetColor = metTarget ? '#059669' : '#dc2626';
+                const targetIcon = metTarget ? '✅' : '❌';
+                const percentageDiff = metTarget 
+                    ? `+${((data.actual - data.conservative) / data.conservative * 100).toFixed(1)}%`
+                    : `-${((data.conservative - data.actual) / data.conservative * 100).toFixed(1)}%`;
                 
                 return `
                     <tr>
                         <td style="font-weight: bold;">${monthName}</td>
                         <td>${data.seasonalFactor.toFixed(1)}</td>
-                        <td>${formatCurrency(data.conservative)}</td>
-                        <td style="font-weight: bold;">${formatCurrency(data.baseline)}</td>
+                        <td style="font-weight: bold; color: #dc2626;">${formatCurrency(data.conservative)}</td>
+                        <td>${formatCurrency(data.baseline)}</td>
                         <td>${formatCurrency(data.optimistic)}</td>
-                        <td style="font-weight: bold; color: ${data.actual >= data.baseline ? '#059669' : '#dc2626'};">${formatCurrency(data.actual)}</td>
-                        <td style="color: ${accuracyColor};">
-                            <div style="font-weight: bold;">${data.accuracyType}</div>
-                            <div style="font-size: 0.8em;">±${data.accuracyPercentage.toFixed(1)}%</div>
+                        <td style="font-weight: bold; color: ${targetColor};">${formatCurrency(data.actual)}</td>
+                        <td style="color: ${targetColor};">
+                            <div style="font-weight: bold;">${targetIcon} ${metTarget ? 'Met' : 'Missed'}</div>
+                            <div style="font-size: 0.8em;">${percentageDiff}</div>
                         </td>
                         <td>
                             <button class="btn btn-secondary" onclick="editProjectionData('${month}')" style="padding: 3px 8px; font-size: 0.8em;">Edit</button>
@@ -3085,25 +3118,16 @@
                     const conservative = baseline * 0.75;
                     const optimistic = baseline * 1.25;
                     
-                    // Calculate accuracy if we have actual data
-                    let accuracyType = 'N/A';
+                    // Calculate vs Conservative target
+                    let vsConservativeStatus = 'N/A';
                     let accuracyPercentage = 0;
                     
                     if (actual > 0) {
-                        const conservativeDiff = Math.abs(actual - conservative);
-                        const baselineDiff = Math.abs(actual - baseline);
-                        const optimisticDiff = Math.abs(actual - optimistic);
-                        
-                        accuracyType = 'Baseline';
-                        accuracyPercentage = baselineDiff / baseline * 100;
-                        
-                        if (conservativeDiff < baselineDiff && conservativeDiff < optimisticDiff) {
-                            accuracyType = 'Conservative';
-                            accuracyPercentage = conservativeDiff / conservative * 100;
-                        } else if (optimisticDiff < baselineDiff) {
-                            accuracyType = 'Optimistic';
-                            accuracyPercentage = optimisticDiff / optimistic * 100;
-                        }
+                        const metTarget = actual >= conservative;
+                        vsConservativeStatus = metTarget ? 'Met ✅' : 'Missed ❌';
+                        accuracyPercentage = metTarget 
+                            ? ((actual - conservative) / conservative * 100)
+                            : ((conservative - actual) / conservative * 100);
                     }
 
                     projectionHistory[monthKey] = {
@@ -3112,8 +3136,9 @@
                         conservative: conservative,
                         optimistic: optimistic,
                         actual: actual,
-                        accuracyType: accuracyType,
+                        accuracyType: 'vs Conservative',
                         accuracyPercentage: accuracyPercentage,
+                        vsConservativeStatus: vsConservativeStatus,
                         imported: true,
                         created: new Date().toISOString()
                     };
@@ -3144,10 +3169,10 @@
             
             const seasonalFactorRow = ['Seasonal Factor', ...sortedMonths.map(m => projectionHistory[m].seasonalFactor)];
             const baselineRow = ['Baseline Projection', ...sortedMonths.map(m => `$${projectionHistory[m].baseline.toFixed(2)}`)];
-            const conservativeRow = ['Conservative (-25%)', ...sortedMonths.map(m => `$${projectionHistory[m].conservative.toFixed(2)}`)];
+            const conservativeRow = ['Conservative Target (-25%)', ...sortedMonths.map(m => `$${projectionHistory[m].conservative.toFixed(2)}`)];
             const optimisticRow = ['Optimistic (+25%)', ...sortedMonths.map(m => `$${projectionHistory[m].optimistic.toFixed(2)}`)];
             const actualRow = ['Actual', ...sortedMonths.map(m => projectionHistory[m].actual > 0 ? `$${projectionHistory[m].actual.toFixed(2)}` : '')];
-            const accuracyRow = ['Best Projection', ...sortedMonths.map(m => projectionHistory[m].accuracyType)];
+            const targetMetRow = ['Conservative Target Met', ...sortedMonths.map(m => projectionHistory[m].vsConservativeStatus || 'N/A')];
 
             const csvContent = [
                 months.join(','),
@@ -3156,7 +3181,7 @@
                 conservativeRow.join(','),
                 optimisticRow.join(','),
                 actualRow.join(','),
-                accuracyRow.join(',')
+                targetMetRow.join(',')
             ].join('\n');
 
             const blob = new Blob([csvContent], { type: 'text/csv' });
