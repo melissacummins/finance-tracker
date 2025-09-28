@@ -33,60 +33,6 @@
             text-align: center;
         }
 
-        .nav-tabs {
-            display: flex;
-            background: white;
-            border-radius: 8px;
-            padding: 5px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .nav-tab {
-            flex: 1;
-            padding: 15px;
-            text-align: center;
-            background: transparent;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .nav-tab.active {
-            background: #667eea;
-            color: white;
-        }
-
-        .nav-tab:hover:not(.active) {
-            background: #f0f2f5;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .card {
-            background: white;
-            border-radius: 10px;
-            padding: 25px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-        }
-
-        .card h3 {
-            color: #4a5568;
-            margin-bottom: 20px;
-            font-size: 1.2em;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 10px;
-        }
-
         .btn {
             background: #667eea;
             color: white;
@@ -111,1692 +57,371 @@
             background: #4a5568;
         }
 
-        .btn-danger {
-            background: #e53e3e;
-        }
-
-        .btn-danger:hover {
-            background: #c53030;
-        }
-
-        .btn-success {
-            background: #38a169;
-        }
-
-        .btn-success:hover {
-            background: #2f855a;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #4a5568;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e2e8f0;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.3s ease;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .grid {
-            display: grid;
-            gap: 20px;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .table th,
-        .table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .table th {
-            background: #f7fafc;
-            font-weight: 600;
-            color: #4a5568;
-        }
-
-        .table tr:hover {
-            background: #f7fafc;
-        }
-
-        .upload-area {
-            border: 2px dashed #cbd5e0;
-            border-radius: 8px;
-            padding: 40px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .upload-area:hover {
-            border-color: #667eea;
-            background: #f7fafc;
-        }
-
-        .upload-area.dragover {
-            border-color: #667eea;
-            background: #edf2f7;
-        }
-
-        .mapping-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .mapping-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px;
-            background: #f7fafc;
-            border-radius: 6px;
-        }
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 25px;
-            border-radius: 10px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 2.5em;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .stat-label {
-            opacity: 0.9;
-            font-size: 0.9em;
-        }
-
-        .alert {
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-
-        .alert-warning {
-            background: #fed7aa;
-            border: 1px solid #fdba74;
-            color: #92400e;
-        }
-
-        .alert-danger {
-            background: #fecaca;
-            border: 1px solid #f87171;
-            color: #991b1b;
-        }
-
-        .alert-success {
-            background: #bbf7d0;
-            border: 1px solid #86efac;
-            color: #166534;
-        }
-
-        .rule-item {
-            background: #f7fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 10px;
-        }
-
-        .rule-conditions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .condition-tag {
-            background: #667eea;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.8em;
-        }
-
-        .subscription-item {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1fr 100px;
-            gap: 15px;
-            align-items: center;
-            padding: 15px;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .subscription-item:last-child {
-            border-bottom: none;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e2e8f0;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: #667eea;
-            transition: width 0.3s ease;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-        }
-
-        .modal-content {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        .card {
             background: white;
-            padding: 30px;
             border-radius: 10px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .close {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 24px;
-            cursor: pointer;
-            color: #718096;
-        }
-
-        .close:hover {
-            color: #4a5568;
-        }
-
-        .projection-table {
-            margin-top: 20px;
-        }
-
-        .projection-table th {
-            background: #4a5568;
-            color: white;
-        }
-
-        .projection-row.baseline {
-            background: #e6fffa;
-        }
-
-        .projection-row.conservative {
-            background: #fed7d7;
-        }
-
-        .projection-row.optimistic {
-            background: #c6f6d5;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
         }
 
         .hidden {
             display: none !important;
         }
 
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-            
-            .nav-tabs {
-                flex-direction: column;
-            }
-            
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .mapping-container {
-                grid-template-columns: 1fr;
-            }
-            
-            .subscription-item {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .auth-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin: 0 auto;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Financial Management System</h1>
-            <p>Import, categorize, and analyze your transactions with automated rules and projections</p>
-        </div>
-
-        <div class="nav-tabs">
-            <button class="nav-tab active" onclick="showTab('dashboard')">Dashboard</button>
-            <button class="nav-tab" onclick="showTab('import')">Import Data</button>
-            <button class="nav-tab" onclick="showTab('transactions')">Transactions</button>
-            <button class="nav-tab" onclick="showTab('categories')">Categories</button>
-            <button class="nav-tab" onclick="showTab('subscriptions')">Subscriptions</button>
-            <button class="nav-tab" onclick="showTab('cashflow')">Cash Flow</button>
-            <button class="nav-tab" onclick="showTab('rules')">Rules</button>
-        </div>
-
-        <!-- Dashboard Tab -->
-        <div id="dashboard" class="tab-content active">
-            <div class="dashboard-grid">
-                <div class="stat-card">
-                    <div class="stat-value" id="totalIncome">$0</div>
-                    <div class="stat-label">Total Income</div>
+        <!-- Loading Screen -->
+        <div id="loadingScreen" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 9999;
+        ">
+            <div style="text-align: center;">
+                <h1 style="margin-bottom: 20px;">Financial Management System</h1>
+                <div style="margin-bottom: 30px;">
+                    <div class="loading-spinner"></div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="totalExpenses">$0</div>
-                    <div class="stat-label">Total Expenses</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="netCashFlow">$0</div>
-                    <div class="stat-label">Net Cash Flow</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="uncategorizedCount">0</div>
-                    <div class="stat-label">Uncategorized Transactions</div>
-                </div>
+                <p id="loadingMessage">Initializing application...</p>
             </div>
-
-            <div class="grid">
-                <div class="card">
-                    <h3>Recent Activity</h3>
-                    <div id="recentTransactions"></div>
-                </div>
-                <div class="card">
-                    <h3>Category Breakdown</h3>
-                    <div id="categoryBreakdown"></div>
-                </div>
-            </div>
-
-            <div id="alerts" class="alerts-container"></div>
         </div>
-
-        <!-- Import Data Tab -->
-        <div id="import" class="tab-content">
-            <div class="card">
-                <h3>Import Transactions</h3>
-                
-                <div class="upload-area" id="uploadArea">
-                    <p>Drag & drop your CSV/Excel file here or click to browse</p>
-                    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display: none;">
-                </div>
-
-                <div id="mappingSection" class="hidden">
-                    <h4>Column Mapping</h4>
-                    <p>Map your file columns to the appropriate fields:</p>
-                    
-                    <div class="form-group">
-                        <label>Import Template</label>
-                        <select id="templateSelect" class="form-control">
-                            <option value="">Select a saved template...</option>
-                        </select>
-                        <button class="btn btn-secondary" onclick="saveTemplate()">Save as Template</button>
+        
+        <!-- Main Application -->
+        <div id="mainApp" style="display: none;">
+            <div class="header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h1>Financial Management System</h1>
+                        <p>Import, categorize, and analyze your transactions with automated rules and projections</p>
                     </div>
-
-                    <div id="columnMapping" class="mapping-container"></div>
-
-                    <div class="form-group">
-                        <label>Account Type</label>
-                        <select id="accountType" class="form-control">
-                            <option value="checking">Checking Account</option>
-                            <option value="credit">Credit Card</option>
-                            <option value="savings">Savings Account</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="smartDebitsCredits"> 
-                            Auto-convert debits to negative amounts
-                        </label>
-                    </div>
-
-                    <button class="btn" onclick="processImport()">Import Transactions</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Transactions Tab -->
-        <div id="transactions" class="tab-content">
-            <div class="card">
-                <h3>All Transactions</h3>
-                
-                <div class="form-group">
-                    <input type="text" id="transactionSearch" class="form-control" placeholder="Search transactions...">
-                </div>
-
-                <div class="form-group">
-                    <select id="categoryFilter" class="form-control">
-                        <option value="">All Categories</option>
-                        <option value="uncategorized">Uncategorized Only</option>
-                    </select>
-                </div>
-
-                <table class="table" id="transactionsTable">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Description</th>
-                            <th>Amount</th>
-                            <th>Category</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Categories Tab -->
-        <div id="categories" class="tab-content">
-            <div class="grid">
-                <div class="card">
-                    <h3>Income Categories</h3>
-                    <div id="incomeCategories"></div>
-                    <button class="btn" onclick="addCategory('income')">Add Income Category</button>
-                </div>
-                <div class="card">
-                    <h3>Expense Categories</h3>
-                    <div id="expenseCategories"></div>
-                    <button class="btn" onclick="addCategory('expense')">Add Expense Category</button>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3>Category Summary</h3>
-                <table class="table" id="categorySummaryTable">
-                    <thead>
-                        <tr>
-                            <th>Category</th>
-                            <th>Type</th>
-                            <th>Total</th>
-                            <th>Transaction Count</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Subscriptions Tab -->
-        <div id="subscriptions" class="tab-content">
-            <div class="card">
-                <h3>Subscription Management</h3>
-                <button class="btn" onclick="addSubscription()">Add Subscription</button>
-                
-                <div id="subscriptionsList"></div>
-            </div>
-
-            <div class="card">
-                <h3>Upcoming Payments</h3>
-                <div id="upcomingPayments"></div>
-            </div>
-        </div>
-
-        <!-- Cash Flow Tab -->
-        <div id="cashflow" class="tab-content">
-            <div class="card">
-                <h3>Cash Flow Analysis</h3>
-                
-                <div class="form-group">
-                    <label>Year</label>
-                    <select id="cashflowYear" class="form-control">
-                        <option value="2025">2025</option>
-                        <option value="2024">2024</option>
-                        <option value="2023">2023</option>
-                    </select>
-                </div>
-
-                <table class="table projection-table" id="cashflowTable">
-                    <thead>
-                        <tr>
-                            <th>Income Source</th>
-                            <th>Jan</th>
-                            <th>Feb</th>
-                            <th>Mar</th>
-                            <th>Apr</th>
-                            <th>May</th>
-                            <th>Jun</th>
-                            <th>Jul</th>
-                            <th>Aug</th>
-                            <th>Sep</th>
-                            <th>Oct</th>
-                            <th>Nov</th>
-                            <th>Dec</th>
-                            <th>Total</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-
-            <div class="card">
-                <h3>Income Projections</h3>
-                <p>Based on 6-month rolling average with seasonal factors</p>
-                
-                <table class="table projection-table">
-                    <thead>
-                        <tr>
-                            <th>Projection Type</th>
-                            <th>Jan</th>
-                            <th>Feb</th>
-                            <th>Mar</th>
-                            <th>Apr</th>
-                            <th>May</th>
-                            <th>Jun</th>
-                            <th>Jul</th>
-                            <th>Aug</th>
-                            <th>Sep</th>
-                            <th>Oct</th>
-                            <th>Nov</th>
-                            <th>Dec</th>
-                        </tr>
-                    </thead>
-                    <tbody id="projectionsTable"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Rules Tab -->
-        <div id="rules" class="tab-content">
-            <div class="card">
-                <h3>Categorization Rules</h3>
-                <button class="btn" onclick="addRule()">Add New Rule</button>
-                
-                <div id="rulesList"></div>
-            </div>
-
-            <div class="card">
-                <h3>Rule Testing</h3>
-                <div class="form-group">
-                    <label>Test Description</label>
-                    <input type="text" id="testDescription" class="form-control" placeholder="Enter transaction description...">
-                </div>
-                <button class="btn btn-secondary" onclick="testRules()">Test Rules</button>
-                <div id="ruleTestResult"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modals -->
-    <div id="categoryModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3 id="categoryModalTitle">Add Category</h3>
-            <form id="categoryForm">
-                <div class="form-group">
-                    <label>Category Name</label>
-                    <input type="text" id="categoryName" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label>Type</label>
-                    <select id="categoryType" class="form-control">
-                        <option value="income">Income</option>
-                        <option value="expense">Expense</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn">Save Category</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="ruleModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3 id="ruleModalTitle">Add Categorization Rule</h3>
-            <form id="ruleForm">
-                <div class="form-group">
-                    <label>Rule Name</label>
-                    <input type="text" id="ruleName" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label>Match Condition</label>
-                    <select id="ruleCondition" class="form-control">
-                        <option value="contains">Description contains</option>
-                        <option value="startsWith">Description starts with</option>
-                        <option value="endsWith">Description ends with</option>
-                        <option value="equals">Description equals</option>
-                        <option value="regex">Regular expression</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Match Value</label>
-                    <input type="text" id="ruleValue" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label>Assign Category</label>
-                    <select id="ruleCategory" class="form-control"></select>
-                </div>
-                <div class="form-group">
-                    <label>Priority (1-10, higher = more important)</label>
-                    <input type="number" id="rulePriority" class="form-control" min="1" max="10" value="5">
-                </div>
-                <button type="submit" class="btn">Save Rule</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="subscriptionModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3 id="subscriptionModalTitle">Add Subscription</h3>
-            <form id="subscriptionForm">
-                <div class="form-group">
-                    <label>Service Name</label>
-                    <input type="text" id="subscriptionName" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label>Cost</label>
-                    <input type="number" id="subscriptionCost" class="form-control" step="0.01" required>
-                </div>
-                <div class="form-group">
-                    <label>Billing Cycle</label>
-                    <select id="subscriptionCycle" class="form-control">
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                        <option value="quarterly">Quarterly</option>
-                        <option value="weekly">Weekly</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Next Due Date</label>
-                    <input type="date" id="subscriptionDueDate" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label>Category</label>
-                    <select id="subscriptionCategory" class="form-control"></select>
-                </div>
-                <button type="submit" class="btn">Save Subscription</button>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        // Global data storage
-        let transactions = [];
-        let categories = {
-            income: ['Direct Sales', 'Amazon', 'Kobo', 'Draft2Digital', 'Google Play', 'Patreon', 'Findaway', 'Kickstarter'],
-            expense: ['Services', 'Shipping', 'Production', 'Marketing', 'Education', 'Business']
-        };
-        let rules = [];
-        let subscriptions = [];
-        let importTemplates = {};
-        let currentFileData = null;
-
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', function() {
-            loadData();
-            setupEventListeners();
-            updateDashboard();
-            populateCategoryDropdowns();
-        });
-
-        function showTab(tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Remove active class from all nav tabs
-            document.querySelectorAll('.nav-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Show selected tab
-            document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
-            
-            // Update content based on tab
-            switch(tabName) {
-                case 'dashboard':
-                    updateDashboard();
-                    break;
-                case 'transactions':
-                    updateTransactionsTable();
-                    break;
-                case 'categories':
-                    updateCategoriesView();
-                    break;
-                case 'subscriptions':
-                    updateSubscriptionsView();
-                    break;
-                case 'cashflow':
-                    updateCashflowView();
-                    break;
-                case 'rules':
-                    updateRulesView();
-                    break;
-            }
-        }
-
-        function setupEventListeners() {
-            // File upload
-            const uploadArea = document.getElementById('uploadArea');
-            const fileInput = document.getElementById('fileInput');
-
-            uploadArea.addEventListener('click', () => fileInput.click());
-            uploadArea.addEventListener('dragover', handleDragOver);
-            uploadArea.addEventListener('drop', handleDrop);
-            fileInput.addEventListener('change', handleFileSelect);
-
-            // Search and filter
-            document.getElementById('transactionSearch').addEventListener('input', updateTransactionsTable);
-            document.getElementById('categoryFilter').addEventListener('change', updateTransactionsTable);
-
-            // Modal close events
-            document.querySelectorAll('.close').forEach(closeBtn => {
-                closeBtn.addEventListener('click', function() {
-                    this.closest('.modal').style.display = 'none';
-                });
-            });
-
-            // Form submissions
-            document.getElementById('categoryForm').addEventListener('submit', handleCategorySubmit);
-            document.getElementById('ruleForm').addEventListener('submit', handleRuleSubmit);
-            document.getElementById('subscriptionForm').addEventListener('submit', handleSubscriptionSubmit);
-
-            // Cash flow year change
-            document.getElementById('cashflowYear').addEventListener('change', updateCashflowView);
-        }
-
-        // File Upload Handlers
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.currentTarget.classList.add('dragover');
-        }
-
-        function handleDrop(e) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                processFile(files[0]);
-            }
-        }
-
-        function handleFileSelect(e) {
-            const file = e.target.files[0];
-            if (file) {
-                processFile(file);
-            }
-        }
-
-        function processFile(file) {
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                if (file.name.endsWith('.csv')) {
-                    currentFileData = parseCSV(e.target.result);
-                } else {
-                    // For Excel files, we'd need a library like xlsx
-                    alert('Excel file support requires additional libraries. Please convert to CSV for now.');
-                    return;
-                }
-                
-                showColumnMapping();
-            };
-            
-            reader.readAsText(file);
-        }
-
-        function parseCSV(text) {
-            const lines = text.split('\n');
-            const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-            const data = [];
-            
-            for (let i = 1; i < lines.length; i++) {
-                if (lines[i].trim()) {
-                    const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-                    const row = {};
-                    headers.forEach((header, index) => {
-                        row[header] = values[index] || '';
-                    });
-                    data.push(row);
-                }
-            }
-            
-            return { headers, data };
-        }
-
-        function showColumnMapping() {
-            document.getElementById('mappingSection').classList.remove('hidden');
-            const mappingContainer = document.getElementById('columnMapping');
-            mappingContainer.innerHTML = '';
-
-            const fieldMappings = [
-                { field: 'description', label: 'Description', required: true },
-                { field: 'amount', label: 'Amount', required: true },
-                { field: 'date', label: 'Date', required: true },
-                { field: 'debit', label: 'Debit Amount (optional)', required: false },
-                { field: 'credit', label: 'Credit Amount (optional)', required: false },
-                { field: 'category', label: 'Category (optional)', required: false }
-            ];
-
-            fieldMappings.forEach(mapping => {
-                const mappingItem = document.createElement('div');
-                mappingItem.className = 'mapping-item';
-                
-                mappingItem.innerHTML = `
-                    <label>${mapping.label}${mapping.required ? ' *' : ''}:</label>
-                    <select id="mapping_${mapping.field}" class="form-control">
-                        <option value="">-- Select Column --</option>
-                        ${currentFileData.headers.map(header => 
-                            `<option value="${header}">${header}</option>`
-                        ).join('')}
-                    </select>
-                `;
-                
-                mappingContainer.appendChild(mappingItem);
-            });
-
-            loadTemplates();
-        }
-
-        function loadTemplates() {
-            const templateSelect = document.getElementById('templateSelect');
-            templateSelect.innerHTML = '<option value="">Select a saved template...</option>';
-            
-            Object.keys(importTemplates).forEach(templateName => {
-                templateSelect.innerHTML += `<option value="${templateName}">${templateName}</option>`;
-            });
-
-            templateSelect.addEventListener('change', function() {
-                if (this.value) {
-                    applyTemplate(this.value);
-                }
-            });
-        }
-
-        function applyTemplate(templateName) {
-            const template = importTemplates[templateName];
-            if (template) {
-                Object.keys(template.mapping).forEach(field => {
-                    const select = document.getElementById(`mapping_${field}`);
-                    if (select) {
-                        select.value = template.mapping[field];
-                    }
-                });
-                
-                document.getElementById('accountType').value = template.accountType || 'checking';
-                document.getElementById('smartDebitsCredits').checked = template.smartDebitsCredits || false;
-            }
-        }
-
-        function saveTemplate() {
-            const templateName = prompt('Enter a name for this template:');
-            if (!templateName) return;
-
-            const mapping = {};
-            document.querySelectorAll('[id^="mapping_"]').forEach(select => {
-                const field = select.id.replace('mapping_', '');
-                mapping[field] = select.value;
-            });
-
-            importTemplates[templateName] = {
-                mapping,
-                accountType: document.getElementById('accountType').value,
-                smartDebitsCredits: document.getElementById('smartDebitsCredits').checked
-            };
-
-            saveData();
-            loadTemplates();
-            alert('Template saved successfully!');
-        }
-
-        function processImport() {
-            const mapping = {};
-            let hasRequiredFields = true;
-
-            // Check required mappings
-            ['description', 'amount', 'date'].forEach(field => {
-                const select = document.getElementById(`mapping_${field}`);
-                mapping[field] = select.value;
-                if (!mapping[field]) {
-                    hasRequiredFields = false;
-                }
-            });
-
-            if (!hasRequiredFields) {
-                alert('Please map all required fields (Description, Amount, Date)');
-                return;
-            }
-
-            // Get optional mappings
-            ['debit', 'credit', 'category'].forEach(field => {
-                const select = document.getElementById(`mapping_${field}`);
-                mapping[field] = select.value;
-            });
-
-            const accountType = document.getElementById('accountType').value;
-            const smartDebitsCredits = document.getElementById('smartDebitsCredits').checked;
-
-            // Process each row
-            let imported = 0;
-            let duplicates = 0;
-
-            currentFileData.data.forEach(row => {
-                const transaction = {
-                    id: generateId(),
-                    description: row[mapping.description] || '',
-                    date: parseDate(row[mapping.date]),
-                    amount: 0,
-                    category: row[mapping.category] || 'Uncategorized',
-                    accountType: accountType,
-                    imported: new Date()
-                };
-
-                // Handle amount calculation
-                if (mapping.debit && mapping.credit && row[mapping.debit] && row[mapping.credit]) {
-                    // Separate debit/credit columns
-                    const debit = parseFloat(row[mapping.debit]) || 0;
-                    const credit = parseFloat(row[mapping.credit]) || 0;
-                    transaction.amount = credit - debit;
-                } else if (mapping.amount && row[mapping.amount]) {
-                    // Single amount column
-                    transaction.amount = parseFloat(row[mapping.amount]) || 0;
-                    
-                    // Apply smart debit conversion if enabled
-                    if (smartDebitsCredits && accountType === 'checking' && transaction.amount > 0) {
-                        // Assuming positive amounts are debits in checking accounts
-                        transaction.amount = -transaction.amount;
-                    }
-                }
-
-                // Check for duplicates
-                const isDuplicate = transactions.some(t => 
-                    t.description === transaction.description &&
-                    t.date === transaction.date &&
-                    Math.abs(t.amount - transaction.amount) < 0.01
-                );
-
-                if (!isDuplicate) {
-                    // Apply categorization rules
-                    applyCategorizationRules(transaction);
-                    transactions.push(transaction);
-                    imported++;
-                } else {
-                    duplicates++;
-                }
-            });
-
-            // Hide mapping section and show results
-            document.getElementById('mappingSection').classList.add('hidden');
-            alert(`Import complete!\nImported: ${imported} transactions\nDuplicates skipped: ${duplicates}`);
-
-            saveData();
-            updateDashboard();
-            showTab('transactions');
-        }
-
-        function applyCategorizationRules(transaction) {
-            // Sort rules by priority (highest first)
-            const sortedRules = [...rules].sort((a, b) => b.priority - a.priority);
-
-            for (const rule of sortedRules) {
-                if (matchesRule(transaction.description, rule)) {
-                    transaction.category = rule.category;
-                    transaction.appliedRule = rule.name;
-                    break;
-                }
-            }
-        }
-
-        function matchesRule(description, rule) {
-            const desc = description.toLowerCase();
-            const value = rule.value.toLowerCase();
-
-            switch (rule.condition) {
-                case 'contains':
-                    return desc.includes(value);
-                case 'startsWith':
-                    return desc.startsWith(value);
-                case 'endsWith':
-                    return desc.endsWith(value);
-                case 'equals':
-                    return desc === value;
-                case 'regex':
-                    try {
-                        return new RegExp(rule.value, 'i').test(description);
-                    } catch (e) {
-                        return false;
-                    }
-                default:
-                    return false;
-            }
-        }
-
-        function parseDate(dateStr) {
-            if (!dateStr) return new Date();
-            
-            // Try different date formats
-            const formats = [
-                /^\d{4}-\d{2}-\d{2}$/,  // YYYY-MM-DD
-                /^\d{2}\/\d{2}\/\d{4}$/, // MM/DD/YYYY
-                /^\d{2}-\d{2}-\d{4}$/,  // MM-DD-YYYY
-            ];
-
-            const date = new Date(dateStr);
-            return isNaN(date.getTime()) ? new Date() : date;
-        }
-
-        function generateId() {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
-        }
-
-        // Dashboard Functions
-        function updateDashboard() {
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
-
-            const monthlyTransactions = transactions.filter(t => {
-                const date = new Date(t.date);
-                return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-            });
-
-            const totalIncome = monthlyTransactions
-                .filter(t => t.amount > 0)
-                .reduce((sum, t) => sum + t.amount, 0);
-
-            const totalExpenses = monthlyTransactions
-                .filter(t => t.amount < 0)
-                .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-
-            const uncategorizedCount = transactions.filter(t => 
-                t.category === 'Uncategorized' || !t.category
-            ).length;
-
-            document.getElementById('totalIncome').textContent = formatCurrency(totalIncome);
-            document.getElementById('totalExpenses').textContent = formatCurrency(totalExpenses);
-            document.getElementById('netCashFlow').textContent = formatCurrency(totalIncome - totalExpenses);
-            document.getElementById('uncategorizedCount').textContent = uncategorizedCount;
-
-            updateRecentTransactions();
-            updateCategoryBreakdown();
-            updateAlerts();
-        }
-
-        function updateRecentTransactions() {
-            const recent = transactions
-                .sort((a, b) => new Date(b.date) - new Date(a.date))
-                .slice(0, 5);
-
-            const container = document.getElementById('recentTransactions');
-            container.innerHTML = recent.length ? recent.map(t => `
-                <div style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
-                    <strong>${t.description}</strong><br>
-                    <small>${formatDate(t.date)} - ${t.category}</small>
-                    <span style="float: right; color: ${t.amount > 0 ? 'green' : 'red'};">
-                        ${formatCurrency(t.amount)}
-                    </span>
-                </div>
-            `).join('') : '<p>No transactions yet</p>';
-        }
-
-        function updateCategoryBreakdown() {
-            const categoryTotals = {};
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
-
-            transactions
-                .filter(t => {
-                    const date = new Date(t.date);
-                    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-                })
-                .forEach(t => {
-                    if (!categoryTotals[t.category]) {
-                        categoryTotals[t.category] = 0;
-                    }
-                    categoryTotals[t.category] += Math.abs(t.amount);
-                });
-
-            const container = document.getElementById('categoryBreakdown');
-            const sortedCategories = Object.entries(categoryTotals)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 5);
-
-            container.innerHTML = sortedCategories.length ? sortedCategories.map(([category, total]) => `
-                <div style="padding: 8px; border-bottom: 1px solid #e2e8f0;">
-                    <strong>${category}</strong>
-                    <span style="float: right;">${formatCurrency(total)}</span>
-                </div>
-            `).join('') : '<p>No categories yet</p>';
-        }
-
-        function updateAlerts() {
-            const alerts = [];
-            
-            // Check for uncategorized transactions
-            const uncategorized = transactions.filter(t => t.category === 'Uncategorized' || !t.category);
-            if (uncategorized.length > 0) {
-                alerts.push({
-                    type: 'warning',
-                    message: `You have ${uncategorized.length} uncategorized transactions that need attention.`
-                });
-            }
-
-            // Check for upcoming subscription payments
-            const upcoming = getUpcomingPayments().slice(0, 3);
-            if (upcoming.length > 0) {
-                alerts.push({
-                    type: 'info',
-                    message: `${upcoming.length} subscription payments due in the next 7 days.`
-                });
-            }
-
-            const container = document.getElementById('alerts');
-            container.innerHTML = alerts.map(alert => `
-                <div class="alert alert-${alert.type}">${alert.message}</div>
-            `).join('');
-        }
-
-        // Transactions Functions
-        function updateTransactionsTable() {
-            const search = document.getElementById('transactionSearch').value.toLowerCase();
-            const categoryFilter = document.getElementById('categoryFilter').value;
-
-            let filtered = transactions;
-
-            if (search) {
-                filtered = filtered.filter(t => 
-                    t.description.toLowerCase().includes(search) ||
-                    t.category.toLowerCase().includes(search)
-                );
-            }
-
-            if (categoryFilter === 'uncategorized') {
-                filtered = filtered.filter(t => t.category === 'Uncategorized' || !t.category);
-            } else if (categoryFilter) {
-                filtered = filtered.filter(t => t.category === categoryFilter);
-            }
-
-            const tbody = document.querySelector('#transactionsTable tbody');
-            tbody.innerHTML = filtered
-                .sort((a, b) => new Date(b.date) - new Date(a.date))
-                .map(t => `
-                    <tr>
-                        <td>${formatDate(t.date)}</td>
-                        <td>${t.description}</td>
-                        <td style="color: ${t.amount > 0 ? 'green' : 'red'};">
-                            ${formatCurrency(t.amount)}
-                        </td>
-                        <td>
-                            <select onchange="updateTransactionCategory('${t.id}', this.value)" class="form-control" style="width: auto; display: inline-block;">
-                                <option value="Uncategorized" ${!t.category || t.category === 'Uncategorized' ? 'selected' : ''}>Uncategorized</option>
-                                ${[...categories.income, ...categories.expense].map(cat => 
-                                    `<option value="${cat}" ${t.category === cat ? 'selected' : ''}>${cat}</option>`
-                                ).join('')}
-                            </select>
-                        </td>
-                        <td>
-                            <button class="btn btn-danger" onclick="deleteTransaction('${t.id}')">Delete</button>
-                        </td>
-                    </tr>
-                `).join('');
-
-            // Update category filter dropdown
-            updateCategoryFilterDropdown();
-        }
-
-        function updateCategoryFilterDropdown() {
-            const select = document.getElementById('categoryFilter');
-            const currentValue = select.value;
-            
-            const allCategories = [...new Set(transactions.map(t => t.category).filter(c => c))];
-            
-            select.innerHTML = `
-                <option value="">All Categories</option>
-                <option value="uncategorized">Uncategorized Only</option>
-                ${allCategories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
-            `;
-            
-            select.value = currentValue;
-        }
-
-        function updateTransactionCategory(id, category) {
-            const transaction = transactions.find(t => t.id === id);
-            if (transaction) {
-                transaction.category = category;
-                saveData();
-                updateDashboard();
-            }
-        }
-
-        function deleteTransaction(id) {
-            if (confirm('Are you sure you want to delete this transaction?')) {
-                transactions = transactions.filter(t => t.id !== id);
-                saveData();
-                updateTransactionsTable();
-                updateDashboard();
-            }
-        }
-
-        // Categories Functions
-        function updateCategoriesView() {
-            updateCategoryList('income', 'incomeCategories');
-            updateCategoryList('expense', 'expenseCategories');
-            updateCategorySummary();
-        }
-
-        function updateCategoryList(type, containerId) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = categories[type].map(category => `
-                <div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                    <span>${category}</span>
-                    <button class="btn btn-danger" onclick="deleteCategory('${type}', '${category}')">Delete</button>
-                </div>
-            `).join('');
-        }
-
-        function updateCategorySummary() {
-            const categoryTotals = {};
-            const categoryCounts = {};
-
-            transactions.forEach(t => {
-                if (!categoryTotals[t.category]) {
-                    categoryTotals[t.category] = 0;
-                    categoryCounts[t.category] = 0;
-                }
-                categoryTotals[t.category] += t.amount;
-                categoryCounts[t.category]++;
-            });
-
-            const tbody = document.querySelector('#categorySummaryTable tbody');
-            tbody.innerHTML = Object.entries(categoryTotals).map(([category, total]) => {
-                const type = categories.income.includes(category) ? 'Income' : 
-                           categories.expense.includes(category) ? 'Expense' : 'Other';
-                
-                return `
-                    <tr>
-                        <td>${category}</td>
-                        <td>${type}</td>
-                        <td style="color: ${total > 0 ? 'green' : 'red'};">
-                            ${formatCurrency(total)}
-                        </td>
-                        <td>${categoryCounts[category]}</td>
-                        <td>
-                            <button class="btn btn-secondary" onclick="editCategory('${category}')">Edit</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        function addCategory(type) {
-            document.getElementById('categoryType').value = type;
-            document.getElementById('categoryModalTitle').textContent = `Add ${type.charAt(0).toUpperCase() + type.slice(1)} Category`;
-            document.getElementById('categoryModal').style.display = 'block';
-        }
-
-        function deleteCategory(type, category) {
-            if (confirm(`Are you sure you want to delete the category "${category}"?`)) {
-                categories[type] = categories[type].filter(c => c !== category);
-                
-                // Update transactions that use this category
-                transactions.forEach(t => {
-                    if (t.category === category) {
-                        t.category = 'Uncategorized';
-                    }
-                });
-                
-                saveData();
-                updateCategoriesView();
-                populateCategoryDropdowns();
-            }
-        }
-
-        function handleCategorySubmit(e) {
-            e.preventDefault();
-            
-            const name = document.getElementById('categoryName').value;
-            const type = document.getElementById('categoryType').value;
-            
-            if (!categories[type].includes(name)) {
-                categories[type].push(name);
-                saveData();
-                updateCategoriesView();
-                populateCategoryDropdowns();
-            }
-            
-            document.getElementById('categoryModal').style.display = 'none';
-            document.getElementById('categoryForm').reset();
-        }
-
-        function populateCategoryDropdowns() {
-            const allCategories = [...categories.income, ...categories.expense];
-            
-            // Update rule category dropdown
-            const ruleCategory = document.getElementById('ruleCategory');
-            if (ruleCategory) {
-                ruleCategory.innerHTML = allCategories.map(cat => 
-                    `<option value="${cat}">${cat}</option>`
-                ).join('');
-            }
-
-            // Update subscription category dropdown
-            const subscriptionCategory = document.getElementById('subscriptionCategory');
-            if (subscriptionCategory) {
-                subscriptionCategory.innerHTML = categories.expense.map(cat => 
-                    `<option value="${cat}">${cat}</option>`
-                ).join('');
-            }
-        }
-
-        // Rules Functions
-        function updateRulesView() {
-            const container = document.getElementById('rulesList');
-            container.innerHTML = rules.map(rule => `
-                <div class="rule-item">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong>${rule.name}</strong>
-                        <div>
-                            <span style="background: #718096; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">
-                                Priority: ${rule.priority}
-                            </span>
-                            <button class="btn btn-danger" onclick="deleteRule('${rule.id}')">Delete</button>
+                    <div id="authContainer">
+                        <div id="signedOutContainer" style="display: none;">
+                            <button class="btn" onclick="signInWithGoogle()" style="background: #4285f4;">
+                                <span style="margin-right: 8px;">🔐</span>
+                                Sign in with Google
+                            </button>
+                            <button class="btn btn-secondary" onclick="toggleDebug()" style="margin-left: 10px;">Debug</button>
+                        </div>
+                        <div id="signedInContainer" style="display: none;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <div style="text-align: right;">
+                                    <div id="userDisplayName" style="font-weight: bold;"></div>
+                                    <div id="userEmail" style="font-size: 0.9em; opacity: 0.9;"></div>
+                                </div>
+                                <img id="userPhoto" style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid white;">
+                                <button class="btn btn-secondary" onclick="signOutUser()">Sign Out</button>
+                            </div>
                         </div>
                     </div>
-                    <div class="rule-conditions">
-                        <span class="condition-tag">${rule.condition}: "${rule.value}"</span>
-                        <span class="condition-tag">→ ${rule.category}</span>
-                    </div>
                 </div>
-            `).join('');
-        }
+                <div id="syncStatus" style="margin-top: 10px; text-align: center; font-size: 0.9em; opacity: 0.9;">
+                    <!-- Sync status will be shown here -->
+                </div>
+                
+                <!-- Debug Panel -->
+                <div id="debugPanel" style="display: none; margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.1); border-radius: 8px; font-family: monospace; font-size: 0.8em;">
+                    <strong>Debug Information:</strong><br>
+                    <div id="debugInfo">Loading debug info...</div>
+                    <button class="btn btn-secondary" onclick="refreshDebugInfo()" style="margin-top: 10px;">Refresh</button>
+                </div>
+            </div>
 
-        function addRule() {
-            document.getElementById('ruleModalTitle').textContent = 'Add Categorization Rule';
-            document.getElementById('ruleModal').style.display = 'block';
-            populateCategoryDropdowns();
-        }
+            <div class="card">
+                <h3>Dashboard</h3>
+                <p>Application is working! You can now proceed with implementation.</p>
+                <div id="statusMessage"></div>
+            </div>
+        </div>
+    </div>
 
-        function handleRuleSubmit(e) {
-            e.preventDefault();
+    <!-- Simplified Firebase Integration -->
+    <script>
+        console.log('Starting simplified initialization...');
+        
+        // Global variables
+        let currentUser = null;
+        let isFirebaseReady = false;
+        let initializationStarted = false;
+
+        // Try to load Firebase asynchronously
+        function loadFirebase() {
+            console.log('Attempting to load Firebase...');
+            updateLoadingMessage('Connecting to Firebase...');
             
-            const rule = {
-                id: generateId(),
-                name: document.getElementById('ruleName').value,
-                condition: document.getElementById('ruleCondition').value,
-                value: document.getElementById('ruleValue').value,
-                category: document.getElementById('ruleCategory').value,
-                priority: parseInt(document.getElementById('rulePriority').value)
+            // Use dynamic import to avoid syntax issues
+            const script = document.createElement('script');
+            script.type = 'module';
+            script.textContent = `
+                console.log('Firebase module script started');
+                try {
+                    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js');
+                    const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js');
+                    const { getFirestore, doc, setDoc, getDoc } = await import('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js');
+                    
+                    console.log('Firebase modules imported successfully');
+                    
+                    const firebaseConfig = {
+                        apiKey: "AIzaSyCfcKmWAg7rnxVao5hNfgexb8FfPkwu2ww",
+                        authDomain: "income-expenses-cash-flow.firebaseapp.com",
+                        projectId: "income-expenses-cash-flow",
+                        storageBucket: "income-expenses-cash-flow.firebasestorage.app",
+                        messagingSenderId: "489754288851",
+                        appId: "1:489754288851:web:a8151822e2066535746a26",
+                        measurementId: "G-72Q1KQ4TFR"
+                    };
+                    
+                    const app = initializeApp(firebaseConfig);
+                    const auth = getAuth(app);
+                    const db = getFirestore(app);
+                    const provider = new GoogleAuthProvider();
+                    
+                    provider.addScope('email');
+                    provider.addScope('profile');
+                    
+                    window.Firebase = {
+                        app, auth, db, provider,
+                        signInWithPopup, signOut, onAuthStateChanged,
+                        doc, setDoc, getDoc,
+                        initialized: true
+                    };
+                    
+                    window.firebaseReady = true;
+                    console.log('Firebase initialized successfully');
+                    
+                    // Initialize auth
+                    initializeAuth();
+                    
+                } catch (error) {
+                    console.error('Firebase loading failed:', error);
+                    window.firebaseReady = false;
+                    window.Firebase = { initialized: false, error: error.message };
+                    initializeWithoutFirebase();
+                }
+            `;
+            
+            script.onerror = function(error) {
+                console.error('Script loading error:', error);
+                window.firebaseReady = false;
+                initializeWithoutFirebase();
             };
             
-            rules.push(rule);
-            saveData();
-            updateRulesView();
-            
-            document.getElementById('ruleModal').style.display = 'none';
-            document.getElementById('ruleForm').reset();
+            document.head.appendChild(script);
         }
 
-        function deleteRule(id) {
-            if (confirm('Are you sure you want to delete this rule?')) {
-                rules = rules.filter(r => r.id !== id);
-                saveData();
-                updateRulesView();
-            }
-        }
-
-        function testRules() {
-            const description = document.getElementById('testDescription').value;
-            const result = document.getElementById('ruleTestResult');
-            
-            if (!description) {
-                result.innerHTML = '<p>Please enter a description to test.</p>';
+        // Initialize with Firebase
+        function initializeAuth() {
+            if (!window.Firebase || !window.Firebase.initialized) {
+                console.error('Firebase not available for auth');
+                initializeWithoutFirebase();
                 return;
             }
 
-            const matchedRules = rules
-                .filter(rule => matchesRule(description, rule))
-                .sort((a, b) => b.priority - a.priority);
+            updateLoadingMessage('Setting up authentication...');
 
-            if (matchedRules.length === 0) {
-                result.innerHTML = '<div class="alert alert-warning">No rules match this description.</div>';
+            window.Firebase.onAuthStateChanged(window.Firebase.auth, (user) => {
+                if (user) {
+                    currentUser = user;
+                    showSignedInState(user);
+                    updateStatusMessage('Signed in successfully!');
+                } else {
+                    currentUser = null;
+                    showSignedOutState();
+                    updateStatusMessage('Ready to sign in');
+                }
+                hideLoadingScreen();
+            });
+        }
+
+        // Initialize without Firebase
+        function initializeWithoutFirebase() {
+            if (initializationStarted) return;
+            initializationStarted = true;
+            
+            console.log('Initializing without Firebase');
+            updateLoadingMessage('Setting up local mode...');
+            
+            setTimeout(() => {
+                showSignedOutState();
+                updateStatusMessage('Running in local mode - Firebase unavailable');
+                hideLoadingScreen();
+            }, 1000);
+        }
+
+        // UI Functions
+        function showSignedInState(user) {
+            document.getElementById('signedOutContainer').style.display = 'none';
+            document.getElementById('signedInContainer').style.display = 'block';
+            document.getElementById('userDisplayName').textContent = user.displayName || 'User';
+            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('userPhoto').src = user.photoURL || '';
+            updateSyncStatus('Connected to cloud storage');
+        }
+
+        function showSignedOutState() {
+            document.getElementById('signedOutContainer').style.display = 'block';
+            document.getElementById('signedInContainer').style.display = 'none';
+            if (window.Firebase && window.Firebase.initialized) {
+                updateSyncStatus('Sign in to sync data to the cloud');
             } else {
-                const topRule = matchedRules[0];
-                result.innerHTML = `
-                    <div class="alert alert-success">
-                        <strong>Match found:</strong> "${topRule.name}" would assign category "${topRule.category}"
-                        ${matchedRules.length > 1 ? `<br><small>${matchedRules.length - 1} other rules also match but have lower priority.</small>` : ''}
-                    </div>
-                `;
+                updateSyncStatus('Using local storage only');
             }
         }
 
-        // Subscriptions Functions
-        function updateSubscriptionsView() {
-            const container = document.getElementById('subscriptionsList');
-            container.innerHTML = subscriptions.map(sub => `
-                <div class="subscription-item">
-                    <div>
-                        <strong>${sub.name}</strong><br>
-                        <small>${sub.category}</small>
-                    </div>
-                    <div>${formatCurrency(sub.cost)}</div>
-                    <div>${sub.cycle}</div>
-                    <div>${formatDate(sub.nextDueDate)}</div>
-                    <div>
-                        <button class="btn btn-secondary" onclick="editSubscription('${sub.id}')">Edit</button>
-                        <button class="btn btn-danger" onclick="deleteSubscription('${sub.id}')">Delete</button>
-                    </div>
-                </div>
-            `).join('');
-
-            updateUpcomingPayments();
-        }
-
-        function updateUpcomingPayments() {
-            const upcoming = getUpcomingPayments();
-            const container = document.getElementById('upcomingPayments');
-            
-            container.innerHTML = upcoming.slice(0, 10).map(payment => `
-                <div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
-                    <div>
-                        <strong>${payment.name}</strong><br>
-                        <small>Due: ${formatDate(payment.dueDate)} (${payment.daysUntilDue} days)</small>
-                    </div>
-                    <div>${formatCurrency(payment.cost)}</div>
-                </div>
-            `).join('');
-        }
-
-        function getUpcomingPayments() {
-            const now = new Date();
-            const thirtyDaysFromNow = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
-
-            return subscriptions
-                .map(sub => {
-                    const dueDate = new Date(sub.nextDueDate);
-                    const daysUntilDue = Math.ceil((dueDate - now) / (24 * 60 * 60 * 1000));
-                    
-                    return {
-                        ...sub,
-                        dueDate,
-                        daysUntilDue
-                    };
-                })
-                .filter(payment => payment.dueDate <= thirtyDaysFromNow)
-                .sort((a, b) => a.daysUntilDue - b.daysUntilDue);
-        }
-
-        function addSubscription() {
-            document.getElementById('subscriptionModalTitle').textContent = 'Add Subscription';
-            document.getElementById('subscriptionModal').style.display = 'block';
-            populateCategoryDropdowns();
-        }
-
-        function handleSubscriptionSubmit(e) {
-            e.preventDefault();
-            
-            const subscription = {
-                id: generateId(),
-                name: document.getElementById('subscriptionName').value,
-                cost: parseFloat(document.getElementById('subscriptionCost').value),
-                cycle: document.getElementById('subscriptionCycle').value,
-                nextDueDate: document.getElementById('subscriptionDueDate').value,
-                category: document.getElementById('subscriptionCategory').value
-            };
-            
-            subscriptions.push(subscription);
-            saveData();
-            updateSubscriptionsView();
-            
-            document.getElementById('subscriptionModal').style.display = 'none';
-            document.getElementById('subscriptionForm').reset();
-        }
-
-        function deleteSubscription(id) {
-            if (confirm('Are you sure you want to delete this subscription?')) {
-                subscriptions = subscriptions.filter(s => s.id !== id);
-                saveData();
-                updateSubscriptionsView();
+        function updateSyncStatus(message) {
+            const statusElement = document.getElementById('syncStatus');
+            if (statusElement) {
+                statusElement.textContent = message;
             }
         }
 
-        // Cash Flow Functions
-        function updateCashflowView() {
-            const year = document.getElementById('cashflowYear').value;
-            updateCashflowTable(year);
-            updateProjectionsTable();
+        function updateStatusMessage(message) {
+            const statusElement = document.getElementById('statusMessage');
+            if (statusElement) {
+                statusElement.innerHTML = '<strong>Status:</strong> ' + message;
+            }
         }
 
-        function updateCashflowTable(year) {
-            const yearTransactions = transactions.filter(t => 
-                new Date(t.date).getFullYear() == year && t.amount > 0
-            );
-
-            const incomeBySource = {};
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-            // Group by income source (category)
-            yearTransactions.forEach(t => {
-                if (!incomeBySource[t.category]) {
-                    incomeBySource[t.category] = new Array(12).fill(0);
-                }
-                const month = new Date(t.date).getMonth();
-                incomeBySource[t.category][month] += t.amount;
-            });
-
-            const tbody = document.querySelector('#cashflowTable tbody');
-            tbody.innerHTML = Object.entries(incomeBySource).map(([source, monthlyAmounts]) => {
-                const total = monthlyAmounts.reduce((sum, amount) => sum + amount, 0);
-                return `
-                    <tr>
-                        <td><strong>${source}</strong></td>
-                        ${monthlyAmounts.map(amount => 
-                            `<td>${amount > 0 ? formatCurrency(amount) : '-'}</td>`
-                        ).join('')}
-                        <td><strong>${formatCurrency(total)}</strong></td>
-                    </tr>
-                `;
-            }).join('');
+        function hideLoadingScreen() {
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
         }
 
-        function updateProjectionsTable() {
-            // Calculate 6-month rolling average
-            const currentDate = new Date();
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const seasonalFactors = [0.9, 0.85, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2, 1.1, 1.05, 1.1, 1.1]; // Sample factors
+        function updateLoadingMessage(message) {
+            const loadingMessage = document.getElementById('loadingMessage');
+            if (loadingMessage) {
+                loadingMessage.textContent = message;
+            }
+        }
 
-            const projections = {
-                baseline: new Array(12).fill(0),
-                conservative: new Array(12).fill(0),
-                optimistic: new Array(12).fill(0)
-            };
+        // Auth Functions
+        async function signInWithGoogle() {
+            console.log('Sign in attempted');
+            
+            if (!window.Firebase || !window.Firebase.initialized) {
+                alert('Firebase is not available. Please refresh the page and try again.');
+                return;
+            }
 
-            // Calculate rolling average from historical data
-            const recentMonths = [];
-            for (let i = 1; i <= 6; i++) {
-                const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-                const monthTransactions = transactions.filter(t => {
-                    const tDate = new Date(t.date);
-                    return tDate.getMonth() === date.getMonth() && 
-                           tDate.getFullYear() === date.getFullYear() && 
-                           t.amount > 0;
-                });
+            try {
+                updateSyncStatus('Signing in...');
+                const result = await window.Firebase.signInWithPopup(window.Firebase.auth, window.Firebase.provider);
+                console.log('Sign in successful:', result.user.email);
+            } catch (error) {
+                console.error('Sign in error:', error);
+                updateSyncStatus('Sign in failed');
                 
-                const monthTotal = monthTransactions.reduce((sum, t) => sum + t.amount, 0);
-                recentMonths.push(monthTotal);
-            }
-
-            const avgMonthlyIncome = recentMonths.reduce((sum, total) => sum + total, 0) / recentMonths.length;
-
-            // Apply seasonal factors
-            months.forEach((month, index) => {
-                const baselineAmount = avgMonthlyIncome * seasonalFactors[index];
-                projections.baseline[index] = baselineAmount;
-                projections.conservative[index] = baselineAmount * 0.75; // -25%
-                projections.optimistic[index] = baselineAmount * 1.25;   // +25%
-            });
-
-            const tbody = document.getElementById('projectionsTable');
-            tbody.innerHTML = `
-                <tr class="projection-row baseline">
-                    <td><strong>Baseline Projection</strong></td>
-                    ${projections.baseline.map(amount => `<td>${formatCurrency(amount)}</td>`).join('')}
-                </tr>
-                <tr class="projection-row conservative">
-                    <td><strong>Conservative (-25%)</strong></td>
-                    ${projections.conservative.map(amount => `<td>${formatCurrency(amount)}</td>`).join('')}
-                </tr>
-                <tr class="projection-row optimistic">
-                    <td><strong>Optimistic (+25%)</strong></td>
-                    ${projections.optimistic.map(amount => `<td>${formatCurrency(amount)}</td>`).join('')}
-                </tr>
-            `;
-        }
-
-        // Utility Functions
-        function formatCurrency(amount) {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD'
-            }).format(amount);
-        }
-
-        function formatDate(date) {
-            return new Date(date).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
-        }
-
-        // Data Persistence
-        function saveData() {
-            const data = {
-                transactions,
-                categories,
-                rules,
-                subscriptions,
-                importTemplates,
-                lastSaved: new Date().toISOString()
-            };
-            localStorage.setItem('financialData', JSON.stringify(data));
-        }
-
-        function loadData() {
-            const saved = localStorage.getItem('financialData');
-            if (saved) {
-                const data = JSON.parse(saved);
-                transactions = data.transactions || [];
-                categories = data.categories || categories;
-                rules = data.rules || [];
-                subscriptions = data.subscriptions || [];
-                importTemplates = data.importTemplates || {};
-            }
-        }
-
-        function exportData() {
-            const data = {
-                transactions,
-                categories,
-                rules,
-                subscriptions,
-                importTemplates,
-                exportDate: new Date().toISOString()
-            };
-            
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `financial_data_${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        function importData() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-            input.onchange = function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        try {
-                            const data = JSON.parse(e.target.result);
-                            if (confirm('This will replace all current data. Are you sure?')) {
-                                transactions = data.transactions || [];
-                                categories = data.categories || categories;
-                                rules = data.rules || [];
-                                subscriptions = data.subscriptions || [];
-                                importTemplates = data.importTemplates || {};
-                                saveData();
-                                updateDashboard();
-                                alert('Data imported successfully!');
-                            }
-                        } catch (error) {
-                            alert('Error importing data: Invalid file format');
-                        }
-                    };
-                    reader.readAsText(file);
+                if (error.code === 'auth/popup-blocked') {
+                    alert('Popup was blocked. Please allow popups for this site and try again.');
+                } else if (error.code === 'auth/popup-closed-by-user') {
+                    alert('Sign in was cancelled.');
+                } else {
+                    alert('Failed to sign in: ' + error.message);
                 }
-            };
-            input.click();
+            }
         }
 
-        // Add export/import buttons to dashboard
-        window.addEventListener('load', function() {
-            const dashboardCard = document.querySelector('#dashboard .card');
-            if (dashboardCard) {
-                const exportImportDiv = document.createElement('div');
-                exportImportDiv.style.marginTop = '20px';
-                exportImportDiv.innerHTML = `
-                    <button class="btn btn-secondary" onclick="exportData()">Export Data</button>
-                    <button class="btn btn-secondary" onclick="importData()">Import Data</button>
-                `;
-                dashboardCard.appendChild(exportImportDiv);
+        async function signOutUser() {
+            if (!window.Firebase) {
+                alert('Firebase is not available.');
+                return;
             }
+
+            try {
+                await window.Firebase.signOut(window.Firebase.auth);
+                console.log('User signed out');
+            } catch (error) {
+                console.error('Error signing out:', error);
+                alert('Failed to sign out. Please try again.');
+            }
+        }
+
+        // Debug Functions
+        function toggleDebug() {
+            const panel = document.getElementById('debugPanel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                refreshDebugInfo();
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function refreshDebugInfo() {
+            const debugInfo = document.getElementById('debugInfo');
+            const info = {
+                'Firebase Ready': window.firebaseReady,
+                'Firebase Object': !!window.Firebase,
+                'Firebase Initialized': window.Firebase?.initialized,
+                'Current User': !!currentUser,
+                'Initialization Started': initializationStarted,
+                'User Agent': navigator.userAgent.substring(0, 100) + '...'
+            };
+
+            let debugText = '';
+            for (const [key, value] of Object.entries(info)) {
+                debugText += key + ': ' + value + '<br>';
+            }
+
+            if (window.Firebase?.error) {
+                debugText += '<br><strong>Firebase Error:</strong> ' + window.Firebase.error + '<br>';
+            }
+
+            debugInfo.innerHTML = debugText;
+        }
+
+        // Initialize on DOM load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, starting initialization...');
+            updateLoadingMessage('Starting application...');
+            
+            // Give a moment for any issues to surface, then try Firebase
+            setTimeout(() => {
+                if (!initializationStarted) {
+                    loadFirebase();
+                    
+                    // Fallback timer
+                    setTimeout(() => {
+                        if (!window.firebaseReady && !initializationStarted) {
+                            console.warn('Firebase timeout, falling back to local mode');
+                            initializeWithoutFirebase();
+                        }
+                    }, 5000);
+                }
+            }, 500);
         });
+
+        console.log('Script loaded successfully');
     </script>
 </body>
 </html>
