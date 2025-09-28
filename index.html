@@ -370,9 +370,25 @@
                     </select>
                 </div>
 
+                <!-- Bulk Actions -->
+                <div id="bulkActions" class="hidden" style="background: #f7fafc; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 2px solid #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span id="selectedCount">0 transactions selected</span>
+                        <div style="display: flex; gap: 10px;">
+                            <select id="bulkCategorySelect" class="form-control" style="width: 200px;">
+                                <option value="">Choose category...</option>
+                            </select>
+                            <button class="btn" onclick="bulkSetCategory()">Set Category</button>
+                            <button class="btn btn-danger" onclick="bulkDeleteTransactions()">Delete Selected</button>
+                            <button class="btn btn-secondary" onclick="clearSelection()">Clear Selection</button>
+                        </div>
+                    </div>
+                </div>
+
                 <table class="table" id="transactionsTable">
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="selectAllTransactions" onchange="toggleSelectAll()"></th>
                             <th>Date</th>
                             <th>Description</th>
                             <th>Amount</th>
@@ -726,7 +742,7 @@
             if (searchTerm) {
                 filteredTransactions = filteredTransactions.filter(t => 
                     t.description.toLowerCase().includes(searchTerm) ||
-                    t.category.toLowerCase().includes(searchTerm)
+                    (t.category && t.category.toLowerCase().includes(searchTerm))
                 );
             }
             
@@ -748,6 +764,7 @@
             
             tbody.innerHTML = filteredTransactions.map(t => `
                 <tr>
+                    <td><input type="checkbox" class="transaction-checkbox" value="${t.id}" onchange="updateBulkActions()"></td>
                     <td>${formatDate(t.date)}</td>
                     <td>${t.description}</td>
                     <td style="color: ${t.amount > 0 ? 'green' : 'red'};">${formatCurrency(t.amount)}</td>
@@ -761,6 +778,126 @@
             
             // Update category filter options
             updateCategoryFilterOptions();
+            updateBulkCategoryOptions();
+            
+            // Reset bulk selection
+            clearSelection();
+        }
+
+        function updateBulkCategoryOptions() {
+            const bulkCategorySelect = document.getElementById('bulkCategorySelect');
+            if (!bulkCategorySelect) return;
+            
+            const allCategories = [...categories.income, ...categories.expense];
+            
+            bulkCategorySelect.innerHTML = `
+                <option value="">Choose category...</option>
+                <optgroup label="Income Categories">
+                    ${categories.income.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                </optgroup>
+                <optgroup label="Expense Categories">
+                    ${categories.expense.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                </optgroup>
+            `;
+        }
+
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAllTransactions');
+            const checkboxes = document.querySelectorAll('.transaction-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+            
+            updateBulkActions();
+        }
+
+        function updateBulkActions() {
+            const checkboxes = document.querySelectorAll('.transaction-checkbox:checked');
+            const bulkActions = document.getElementById('bulkActions');
+            const selectedCount = document.getElementById('selectedCount');
+            const selectAll = document.getElementById('selectAllTransactions');
+            
+            const count = checkboxes.length;
+            selectedCount.textContent = `${count} transaction${count !== 1 ? 's' : ''} selected`;
+            
+            if (count > 0) {
+                bulkActions.classList.remove('hidden');
+            } else {
+                bulkActions.classList.add('hidden');
+            }
+            
+            // Update select all checkbox state
+            const allCheckboxes = document.querySelectorAll('.transaction-checkbox');
+            if (count === 0) {
+                selectAll.indeterminate = false;
+                selectAll.checked = false;
+            } else if (count === allCheckboxes.length) {
+                selectAll.indeterminate = false;
+                selectAll.checked = true;
+            } else {
+                selectAll.indeterminate = true;
+            }
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('.transaction-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            document.getElementById('selectAllTransactions').checked = false;
+            document.getElementById('selectAllTransactions').indeterminate = false;
+            updateBulkActions();
+        }
+
+        function bulkSetCategory() {
+            const selectedCategory = document.getElementById('bulkCategorySelect').value;
+            if (!selectedCategory) {
+                alert('Please select a category');
+                return;
+            }
+            
+            const checkboxes = document.querySelectorAll('.transaction-checkbox:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (selectedIds.length === 0) {
+                alert('No transactions selected');
+                return;
+            }
+            
+            if (confirm(`Set category to "${selectedCategory}" for ${selectedIds.length} transaction${selectedIds.length !== 1 ? 's' : ''}?`)) {
+                selectedIds.forEach(id => {
+                    const transaction = transactions.find(t => t.id === id);
+                    if (transaction) {
+                        transaction.category = selectedCategory;
+                    }
+                });
+                
+                updateDashboard();
+                updateTransactionsTable();
+                saveUserData();
+                
+                alert(`Updated ${selectedIds.length} transactions`);
+            }
+        }
+
+        function bulkDeleteTransactions() {
+            const checkboxes = document.querySelectorAll('.transaction-checkbox:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (selectedIds.length === 0) {
+                alert('No transactions selected');
+                return;
+            }
+            
+            if (confirm(`Delete ${selectedIds.length} transaction${selectedIds.length !== 1 ? 's' : ''}? This cannot be undone.`)) {
+                transactions = transactions.filter(t => !selectedIds.includes(t.id));
+                
+                updateDashboard();
+                updateTransactionsTable();
+                saveUserData();
+                
+                alert(`Deleted ${selectedIds.length} transactions`);
+            }
         }
 
         function updateCategoryFilterOptions() {
@@ -898,21 +1035,68 @@
         }
 
         function parseCSV(text) {
+            // Improved CSV parsing to handle quoted fields, commas in quotes, etc.
             const lines = text.split('\n').filter(line => line.trim());
             if (lines.length < 2) {
                 alert('CSV file must have at least a header and one data row.');
                 return;
             }
 
-            csvHeaders = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-            csvData = lines.slice(1).map(line => {
-                const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-                return csvHeaders.reduce((obj, header, index) => {
-                    obj[header] = values[index] || '';
-                    return obj;
-                }, {});
-            });
+            // Parse CSV with proper quote handling
+            function parseCSVLine(line) {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    const nextChar = line[i + 1];
+                    
+                    if (char === '"') {
+                        if (inQuotes && nextChar === '"') {
+                            // Escaped quote
+                            current += '"';
+                            i++; // Skip next quote
+                        } else {
+                            // Toggle quote state
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        // End of field
+                        result.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                
+                // Add the last field
+                result.push(current.trim());
+                return result;
+            }
 
+            csvHeaders = parseCSVLine(lines[0]);
+            csvData = [];
+
+            // Parse each data line
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue; // Skip empty lines
+                
+                const values = parseCSVLine(line);
+                
+                // Create object from headers and values
+                const row = {};
+                csvHeaders.forEach((header, index) => {
+                    row[header] = values[index] || '';
+                });
+                
+                csvData.push(row);
+            }
+
+            console.log(`Parsed ${csvData.length} rows from CSV`);
+            console.log('Sample row:', csvData[0]);
+            
             showColumnMapping();
         }
 
@@ -984,39 +1168,73 @@
 
             const accountType = document.getElementById('accountType').value;
             let importedCount = 0;
+            let skippedCount = 0;
             let detectedSubscriptions = [];
+            const importErrors = [];
 
-            csvData.forEach(row => {
+            console.log(`Processing ${csvData.length} rows...`);
+
+            csvData.forEach((row, index) => {
                 const dateStr = row[mappings.date];
                 const description = row[mappings.description];
                 const amountStr = row[mappings.amount];
                 const transactionType = row[mappings.transactionType] || '';
                 const category = row[mappings.category] || 'Uncategorized';
 
-                if (!dateStr || !description || !amountStr) return;
-
-                // Parse date
-                let date;
-                try {
-                    date = new Date(dateStr).toISOString().split('T')[0];
-                } catch (e) {
-                    console.warn('Invalid date:', dateStr);
+                if (!dateStr || !description || !amountStr) {
+                    skippedCount++;
+                    importErrors.push(`Row ${index + 2}: Missing required fields`);
                     return;
                 }
 
-                // Parse amount and handle transaction type
-                let amount = parseFloat(amountStr.replace(/[$,]/g, ''));
+                // Parse date with multiple format support
+                let date;
+                try {
+                    // Try different date formats
+                    let parsedDate;
+                    
+                    // Check for MM/DD/YYYY, MM-DD-YYYY, etc.
+                    if (dateStr.match(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/)) {
+                        parsedDate = new Date(dateStr);
+                    }
+                    // Check for YYYY-MM-DD
+                    else if (dateStr.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+                        parsedDate = new Date(dateStr);
+                    }
+                    // Check for DD/MM/YYYY (European format)
+                    else if (dateStr.match(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/) && dateStr.split(/[\/\-]/)[0] > 12) {
+                        const parts = dateStr.split(/[\/\-]/);
+                        parsedDate = new Date(`${parts[1]}/${parts[0]}/${parts[2]}`);
+                    }
+                    else {
+                        parsedDate = new Date(dateStr);
+                    }
+                    
+                    if (isNaN(parsedDate.getTime())) {
+                        throw new Error('Invalid date');
+                    }
+                    
+                    date = parsedDate.toISOString().split('T')[0];
+                } catch (e) {
+                    skippedCount++;
+                    importErrors.push(`Row ${index + 2}: Invalid date "${dateStr}"`);
+                    return;
+                }
+
+                // Parse amount with better handling
+                let amount = parseFloat(amountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
                 if (isNaN(amount)) {
-                    console.warn('Invalid amount:', amountStr);
+                    skippedCount++;
+                    importErrors.push(`Row ${index + 2}: Invalid amount "${amountStr}"`);
                     return;
                 }
 
                 // Handle transaction type (debit/credit)
                 if (mappings.transactionType && transactionType) {
                     const type = transactionType.toLowerCase();
-                    if (type.includes('debit') || type.includes('withdrawal') || type.includes('payment')) {
+                    if (type.includes('debit') || type.includes('withdrawal') || type.includes('payment') || type.includes('purchase')) {
                         amount = -Math.abs(amount); // Make negative for debits
-                    } else if (type.includes('credit') || type.includes('deposit') || type.includes('income')) {
+                    } else if (type.includes('credit') || type.includes('deposit') || type.includes('income') || type.includes('refund')) {
                         amount = Math.abs(amount); // Make positive for credits
                     }
                 } else {
@@ -1041,10 +1259,10 @@
                     importDate: new Date().toISOString()
                 };
 
-                // Check for duplicates
+                // Check for duplicates with more flexible matching
                 const isDuplicate = transactions.some(t => 
                     t.date === transaction.date && 
-                    t.description === transaction.description && 
+                    t.description.toLowerCase() === transaction.description.toLowerCase() && 
                     Math.abs(t.amount - transaction.amount) < 0.01
                 );
 
@@ -1056,6 +1274,8 @@
                     if (amount < 0) {
                         detectSubscription(transaction, detectedSubscriptions);
                     }
+                } else {
+                    skippedCount++;
                 }
             });
 
@@ -1064,21 +1284,35 @@
                 processDetectedSubscriptions(detectedSubscriptions);
             }
 
+            // Show detailed results
+            let message = `Import completed!\n\n`;
+            message += `✅ Imported: ${importedCount} transactions\n`;
+            if (skippedCount > 0) {
+                message += `⚠️ Skipped: ${skippedCount} transactions (duplicates or errors)\n`;
+            }
+            if (detectedSubscriptions.length > 0) {
+                message += `🔄 Found: ${detectedSubscriptions.length} potential subscriptions\n`;
+            }
+            if (importErrors.length > 0 && importErrors.length <= 5) {
+                message += `\nErrors:\n${importErrors.slice(0, 5).join('\n')}`;
+            } else if (importErrors.length > 5) {
+                message += `\nFirst 5 errors:\n${importErrors.slice(0, 5).join('\n')}\n... and ${importErrors.length - 5} more`;
+            }
+
+            alert(message);
+
             if (importedCount > 0) {
-                alert(`Successfully imported ${importedCount} transactions!${detectedSubscriptions.length > 0 ? ` Found ${detectedSubscriptions.length} potential subscriptions.` : ''}`);
                 updateDashboard();
                 updateTransactionsTable();
                 updateSubscriptionsView();
                 saveUserData();
-                
-                // Reset the import form
-                document.getElementById('mappingSection').classList.add('hidden');
-                document.getElementById('fileInput').value = '';
-                csvData = [];
-                csvHeaders = [];
-            } else {
-                alert('No new transactions were imported. They may already exist.');
             }
+            
+            // Reset the import form
+            document.getElementById('mappingSection').classList.add('hidden');
+            document.getElementById('fileInput').value = '';
+            csvData = [];
+            csvHeaders = [];
         }
 
         function applyCategorationRules(description, defaultCategory) {
