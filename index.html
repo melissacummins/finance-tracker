@@ -489,7 +489,48 @@
         <div id="cashflow" class="tab-content">
             <div class="card">
                 <h3>Cash Flow Analysis</h3>
-                <p>Cash flow projections and analysis will be available here.</p>
+                
+                <div class="grid" style="margin-bottom: 20px;">
+                    <div class="stat-card">
+                        <div class="stat-value" id="cashflowThisMonth">$0</div>
+                        <div class="stat-label">This Month</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="cashflowLastMonth">$0</div>
+                        <div class="stat-label">Last Month</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="averageMonthlyCashflow">$0</div>
+                        <div class="stat-label">3-Month Average</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="projectedNextMonth">$0</div>
+                        <div class="stat-label">Projected Next Month</div>
+                    </div>
+                </div>
+
+                <div class="grid">
+                    <div class="card">
+                        <h4>Monthly Cash Flow Trend</h4>
+                        <div id="monthlyCashflowChart">
+                            <!-- Monthly breakdown will be displayed here -->
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h4>Income vs Expenses</h4>
+                        <div id="incomeVsExpensesChart">
+                            <!-- Income vs expenses breakdown will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>Running Balance</h4>
+                    <p style="margin-bottom: 15px;">Track your cumulative cash flow over time</p>
+                    <div id="runningBalanceChart">
+                        <!-- Running balance chart will be displayed here -->
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -746,6 +787,7 @@
             updateDuplicateAlert(duplicateCount);
             updateRecentTransactions();
             updateCategoryBreakdown();
+            updateCashflowAnalysis();
         }
 
         function updateCategoryBreakdown() {
@@ -757,45 +799,95 @@
                 return;
             }
 
-            // Group transactions by category and calculate totals
-            const categoryTotals = {};
-            activeTransactions.forEach(t => {
+            // Separate income and expense transactions
+            const incomeTransactions = activeTransactions.filter(t => t.amount > 0);
+            const expenseTransactions = activeTransactions.filter(t => t.amount < 0);
+
+            // Group by category for expenses (most useful breakdown)
+            const expenseTotals = {};
+            expenseTransactions.forEach(t => {
                 const category = t.category || 'Uncategorized';
-                if (!categoryTotals[category]) {
-                    categoryTotals[category] = 0;
+                if (!expenseTotals[category]) {
+                    expenseTotals[category] = 0;
                 }
-                categoryTotals[category] += Math.abs(t.amount);
+                expenseTotals[category] += Math.abs(t.amount);
+            });
+
+            // Group by category for income
+            const incomeTotals = {};
+            incomeTransactions.forEach(t => {
+                const category = t.category || 'Uncategorized';
+                if (!incomeTotals[category]) {
+                    incomeTotals[category] = 0;
+                }
+                incomeTotals[category] += t.amount;
             });
 
             // Sort categories by total amount (descending)
-            const sortedCategories = Object.entries(categoryTotals)
+            const sortedExpenses = Object.entries(expenseTotals)
                 .sort(([,a], [,b]) => b - a)
-                .slice(0, 10); // Show top 10 categories
+                .slice(0, 8); // Show top 8 expense categories
 
-            const totalAmount = Object.values(categoryTotals).reduce((sum, amount) => sum + amount, 0);
+            const sortedIncome = Object.entries(incomeTotals)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 5); // Show top 5 income categories
+
+            const totalExpenses = Object.values(expenseTotals).reduce((sum, amount) => sum + amount, 0);
+            const totalIncome = Object.values(incomeTotals).reduce((sum, amount) => sum + amount, 0);
 
             container.innerHTML = `
-                <div style="max-height: 300px; overflow-y: auto;">
-                    ${sortedCategories.map(([category, amount]) => {
-                        const percentage = totalAmount > 0 ? (amount / totalAmount * 100).toFixed(1) : 0;
-                        return `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
-                                <div>
-                                    <strong>${category}</strong>
-                                    <div style="width: 100px; height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 3px;">
-                                        <div style="width: ${percentage}%; height: 100%; background: #667eea; border-radius: 3px;"></div>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    ${sortedExpenses.length > 0 ? `
+                        <div style="margin-bottom: 20px;">
+                            <h5 style="color: #e53e3e; margin-bottom: 10px;">💸 Top Expenses</h5>
+                            ${sortedExpenses.map(([category, amount]) => {
+                                const percentage = totalExpenses > 0 ? (amount / totalExpenses * 100).toFixed(1) : 0;
+                                return `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #e2e8f0;">
+                                        <div style="flex: 1;">
+                                            <strong>${category}</strong>
+                                            <div style="width: 80px; height: 4px; background: #fee; border-radius: 2px; margin-top: 2px;">
+                                                <div style="width: ${percentage}%; height: 100%; background: #e53e3e; border-radius: 2px;"></div>
+                                            </div>
+                                        </div>
+                                        <div style="text-align: right; margin-left: 10px;">
+                                            <div style="font-weight: bold; color: #e53e3e;">${formatCurrency(amount)}</div>
+                                            <div style="font-size: 0.75em; color: #718096;">${percentage}%</div>
+                                        </div>
                                     </div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="font-weight: bold;">${formatCurrency(amount)}</div>
-                                    <div style="font-size: 0.8em; color: #718096;">${percentage}%</div>
-                                </div>
+                                `;
+                            }).join('')}
+                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e53e3e; font-weight: bold; color: #e53e3e;">
+                                Total Expenses: ${formatCurrency(totalExpenses)}
                             </div>
-                        `;
-                    }).join('')}
-                </div>
-                <div style="margin-top: 10px; padding-top: 10px; border-top: 2px solid #e2e8f0; font-weight: bold;">
-                    Total: ${formatCurrency(totalAmount)}
+                        </div>
+                    ` : ''}
+                    
+                    ${sortedIncome.length > 0 ? `
+                        <div>
+                            <h5 style="color: #059669; margin-bottom: 10px;">💰 Income Sources</h5>
+                            ${sortedIncome.map(([category, amount]) => {
+                                const percentage = totalIncome > 0 ? (amount / totalIncome * 100).toFixed(1) : 0;
+                                return `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #e2e8f0;">
+                                        <div style="flex: 1;">
+                                            <strong>${category}</strong>
+                                            <div style="width: 80px; height: 4px; background: #f0fff4; border-radius: 2px; margin-top: 2px;">
+                                                <div style="width: ${percentage}%; height: 100%; background: #059669; border-radius: 2px;"></div>
+                                            </div>
+                                        </div>
+                                        <div style="text-align: right; margin-left: 10px;">
+                                            <div style="font-weight: bold; color: #059669;">${formatCurrency(amount)}</div>
+                                            <div style="font-size: 0.75em; color: #718096;">${percentage}%</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #059669; font-weight: bold; color: #059669;">
+                                Total Income: ${formatCurrency(totalIncome)}
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }
@@ -2246,6 +2338,7 @@
                 rules = rules.filter(r => r.id !== ruleId);
                 updateRulesView();
                 saveUserData();
+                alert('Rule deleted successfully!');
             }
         }
 
@@ -2272,6 +2365,241 @@
             } else {
                 alert('No transactions were updated. Rules may not match any existing transactions.');
             }
+        }
+
+        function updateCashflowAnalysis() {
+            const activeTransactions = transactions.filter(t => !t.excludeFromTotals);
+            
+            if (activeTransactions.length === 0) {
+                // Clear all cash flow displays if no transactions
+                const elements = ['cashflowThisMonth', 'cashflowLastMonth', 'averageMonthlyCashflow', 'projectedNextMonth'];
+                elements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = '$0';
+                });
+                return;
+            }
+
+            // Get current date info
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+
+            // Group transactions by month
+            const monthlyData = {};
+            activeTransactions.forEach(t => {
+                const date = new Date(t.date);
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                
+                if (!monthlyData[monthKey]) {
+                    monthlyData[monthKey] = { income: 0, expenses: 0, net: 0 };
+                }
+                
+                if (t.amount > 0) {
+                    monthlyData[monthKey].income += t.amount;
+                } else {
+                    monthlyData[monthKey].expenses += Math.abs(t.amount);
+                }
+                monthlyData[monthKey].net = monthlyData[monthKey].income - monthlyData[monthKey].expenses;
+            });
+
+            // Calculate key metrics
+            const thisMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+            const lastMonthKey = `${currentMonth === 0 ? currentYear - 1 : currentYear}-${String(currentMonth === 0 ? 12 : currentMonth).padStart(2, '0')}`;
+
+            const thisMonthCashflow = monthlyData[thisMonthKey]?.net || 0;
+            const lastMonthCashflow = monthlyData[lastMonthKey]?.net || 0;
+
+            // Calculate 3-month average
+            const recentMonths = Object.keys(monthlyData)
+                .sort()
+                .slice(-3)
+                .map(key => monthlyData[key].net);
+            const averageCashflow = recentMonths.length > 0 ? 
+                recentMonths.reduce((sum, val) => sum + val, 0) / recentMonths.length : 0;
+
+            // Simple projection based on average
+            const projectedCashflow = averageCashflow;
+
+            // Update the dashboard cards
+            const cashflowElements = {
+                'cashflowThisMonth': thisMonthCashflow,
+                'cashflowLastMonth': lastMonthCashflow,
+                'averageMonthlyCashflow': averageCashflow,
+                'projectedNextMonth': projectedCashflow
+            };
+
+            Object.entries(cashflowElements).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = formatCurrency(value);
+                    // Color coding for positive/negative
+                    const card = element.closest('.stat-card');
+                    if (card) {
+                        if (value >= 0) {
+                            card.style.background = 'linear-gradient(135deg, #059669 0%, #047857 100%)';
+                        } else {
+                            card.style.background = 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)';
+                        }
+                    }
+                }
+            });
+
+            // Update monthly cashflow chart
+            updateMonthlyCashflowChart(monthlyData);
+            updateIncomeVsExpensesChart(monthlyData);
+            updateRunningBalanceChart(activeTransactions);
+        }
+
+        function updateMonthlyCashflowChart(monthlyData) {
+            const container = document.getElementById('monthlyCashflowChart');
+            if (!container) return;
+
+            const sortedMonths = Object.keys(monthlyData).sort().slice(-6); // Last 6 months
+            
+            if (sortedMonths.length === 0) {
+                container.innerHTML = '<p>No data available yet.</p>';
+                return;
+            }
+
+            const maxValue = Math.max(...sortedMonths.map(month => Math.abs(monthlyData[month].net)));
+            
+            container.innerHTML = `
+                <div style="display: flex; align-items: end; height: 200px; gap: 10px; padding: 20px 0;">
+                    ${sortedMonths.map(month => {
+                        const data = monthlyData[month];
+                        const height = maxValue > 0 ? Math.abs(data.net) / maxValue * 150 : 10;
+                        const isPositive = data.net >= 0;
+                        const [year, monthNum] = month.split('-');
+                        const monthName = new Date(year, monthNum - 1).toLocaleDateString('en-US', { month: 'short' });
+                        
+                        return `
+                            <div style="display: flex; flex-direction: column; align-items: center; flex: 1;">
+                                <div style="height: 150px; display: flex; align-items: end;">
+                                    <div style="
+                                        width: 30px; 
+                                        height: ${height}px; 
+                                        background: ${isPositive ? '#059669' : '#dc2626'}; 
+                                        border-radius: 2px;
+                                        position: relative;
+                                    " title="${formatCurrency(data.net)}">
+                                    </div>
+                                </div>
+                                <div style="margin-top: 8px; font-size: 0.8em; text-align: center;">
+                                    <div>${monthName}</div>
+                                    <div style="font-weight: bold; color: ${isPositive ? '#059669' : '#dc2626'};">
+                                        ${formatCurrency(data.net)}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function updateIncomeVsExpensesChart(monthlyData) {
+            const container = document.getElementById('incomeVsExpensesChart');
+            if (!container) return;
+
+            const sortedMonths = Object.keys(monthlyData).sort().slice(-3); // Last 3 months
+            
+            if (sortedMonths.length === 0) {
+                container.innerHTML = '<p>No data available yet.</p>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div style="padding: 10px 0;">
+                    ${sortedMonths.map(month => {
+                        const data = monthlyData[month];
+                        const [year, monthNum] = month.split('-');
+                        const monthName = new Date(year, monthNum - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                        
+                        return `
+                            <div style="margin-bottom: 15px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                <div style="font-weight: bold; margin-bottom: 8px;">${monthName}</div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                    <span style="color: #059669;">💰 Income:</span>
+                                    <span style="font-weight: bold; color: #059669;">${formatCurrency(data.income)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                    <span style="color: #dc2626;">💸 Expenses:</span>
+                                    <span style="font-weight: bold; color: #dc2626;">${formatCurrency(data.expenses)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding-top: 5px; border-top: 1px solid #e2e8f0;">
+                                    <span style="font-weight: bold;">Net Cash Flow:</span>
+                                    <span style="font-weight: bold; color: ${data.net >= 0 ? '#059669' : '#dc2626'};">
+                                        ${formatCurrency(data.net)}
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function updateRunningBalanceChart(activeTransactions) {
+            const container = document.getElementById('runningBalanceChart');
+            if (!container) return;
+
+            if (activeTransactions.length === 0) {
+                container.innerHTML = '<p>No transactions available for running balance.</p>';
+                return;
+            }
+
+            // Sort transactions by date
+            const sortedTransactions = [...activeTransactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            // Calculate running balance
+            let runningBalance = 0;
+            const balanceData = sortedTransactions.map(t => {
+                runningBalance += t.amount;
+                return {
+                    date: t.date,
+                    balance: runningBalance,
+                    description: t.description,
+                    amount: t.amount
+                };
+            });
+
+            // Show last 10 transactions for running balance
+            const recentBalances = balanceData.slice(-10);
+            
+            container.innerHTML = `
+                <div style="max-height: 300px; overflow-y: auto;">
+                    ${recentBalances.map((item, index) => {
+                        const isPositive = item.amount >= 0;
+                        const balancePositive = item.balance >= 0;
+                        
+                        return `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: bold; font-size: 0.9em;">${formatDate(item.date)}</div>
+                                    <div style="font-size: 0.8em; color: #718096;">${item.description}</div>
+                                </div>
+                                <div style="text-align: center; margin: 0 15px;">
+                                    <div style="font-size: 0.8em; color: ${isPositive ? '#059669' : '#dc2626'};">
+                                        ${isPositive ? '+' : ''}${formatCurrency(item.amount)}
+                                    </div>
+                                </div>
+                                <div style="text-align: right; min-width: 100px;">
+                                    <div style="font-weight: bold; color: ${balancePositive ? '#059669' : '#dc2626'};">
+                                        ${formatCurrency(item.balance)}
+                                    </div>
+                                    <div style="font-size: 0.7em; color: #a0aec0;">Balance</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div style="margin-top: 15px; padding: 15px; background: ${balanceData[balanceData.length - 1]?.balance >= 0 ? '#f0fff4' : '#fef2f2'}; border-radius: 6px; text-align: center;">
+                    <div style="font-size: 1.1em; font-weight: bold; color: ${balanceData[balanceData.length - 1]?.balance >= 0 ? '#059669' : '#dc2626'};">
+                        Current Balance: ${formatCurrency(balanceData[balanceData.length - 1]?.balance || 0)}
+                    </div>
+                </div>
+            `;
         }
 
         // Initialize the dashboard
