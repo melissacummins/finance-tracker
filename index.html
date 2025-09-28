@@ -385,6 +385,40 @@
                     </div>
                 </div>
 
+                <!-- Edit Transaction Form -->
+                <div id="editTransactionForm" class="card hidden" style="background: #fff8e1; border: 2px solid #ffc107; margin-bottom: 15px;">
+                    <h4>Edit Transaction</h4>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="editTransactionDate" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Amount</label>
+                            <input type="number" step="0.01" id="editTransactionAmount" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="editTransactionDescription" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="editTransactionCategory" class="form-control">
+                            <optgroup label="Income Categories">
+                                <!-- Will be populated dynamically -->
+                            </optgroup>
+                            <optgroup label="Expense Categories">
+                                <!-- Will be populated dynamically -->
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn" onclick="saveTransactionEdit()">Save Changes</button>
+                        <button class="btn btn-secondary" onclick="cancelTransactionEdit()">Cancel</button>
+                    </div>
+                </div>
+
                 <table class="table" id="transactionsTable">
                     <thead>
                         <tr>
@@ -691,7 +725,9 @@
 
             const monthlyTransactions = transactions.filter(t => {
                 const date = new Date(t.date);
-                return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+                return date.getMonth() === currentMonth && 
+                       date.getFullYear() === currentYear &&
+                       !t.excludeFromTotals; // Exclude flagged duplicates
             });
 
             const totalIncome = monthlyTransactions
@@ -703,19 +739,137 @@
                 .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
             const uncategorizedCount = transactions.filter(t => 
-                t.category === 'Uncategorized' || !t.category
+                (t.category === 'Uncategorized' || !t.category) && !t.excludeFromTotals
             ).length;
+
+            const duplicateCount = transactions.filter(t => t.isDuplicateFlag).length;
 
             document.getElementById('totalIncome').textContent = formatCurrency(totalIncome);
             document.getElementById('totalExpenses').textContent = formatCurrency(totalExpenses);
             document.getElementById('netCashFlow').textContent = formatCurrency(totalIncome - totalExpenses);
             document.getElementById('uncategorizedCount').textContent = uncategorizedCount;
 
+            // Add duplicate alert if there are flagged duplicates
+            updateDuplicateAlert(duplicateCount);
             updateRecentTransactions();
+        }
+
+        function updateDuplicateAlert(duplicateCount) {
+            // Remove existing alert
+            const existingAlert = document.getElementById('duplicateAlert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+
+            if (duplicateCount > 0) {
+                const dashboardGrid = document.querySelector('.dashboard-grid');
+                const alertHtml = `
+                    <div id="duplicateAlert" class="stat-card" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <div class="stat-value">${duplicateCount}</div>
+                        <div class="stat-label">Flagged Duplicates</div>
+                        <button class="btn btn-secondary" onclick="showDuplicateManager()" style="margin-top: 10px; padding: 5px 10px; font-size: 0.8em;">
+                            Review Duplicates
+                        </button>
+                    </div>
+                `;
+                dashboardGrid.insertAdjacentHTML('beforeend', alertHtml);
+            }
+        }
+
+        function resolveDuplicate(transactionId) {
+            const transaction = transactions.find(t => t.id === transactionId);
+            if (!transaction) return;
+
+            const options = [
+                "Keep this transaction (mark as legitimate)",
+                "Delete this transaction (it's a duplicate)",
+                "Keep all in this group (legitimate multiple charges)",
+                "Review all duplicates in group"
+            ];
+
+            const choice = prompt(`Resolve duplicate for: ${transaction.description}\n\n` +
+                `1. ${options[0]}\n2. ${options[1]}\n3. ${options[2]}\n4. ${options[3]}\n\n` +
+                "Enter number (1-4):", "1");
+
+            const choiceNum = parseInt(choice);
+            
+            switch (choiceNum) {
+                case 1:
+                    // Keep this one, mark as legitimate
+                    transaction.isDuplicateFlag = false;
+                    transaction.excludeFromTotals = false;
+                    delete transaction.duplicateGroup;
+                    break;
+                    
+                case 2:
+                    // Delete this transaction
+                    transactions = transactions.filter(t => t.id !== transactionId);
+                    break;
+                    
+                case 3:
+                    // Keep all in group
+                    const groupId = transaction.duplicateGroup;
+                    transactions.forEach(t => {
+                        if (t.duplicateGroup === groupId) {
+                            t.isDuplicateFlag = false;
+                            t.excludeFromTotals = false;
+                            delete t.duplicateGroup;
+                        }
+                    });
+                    break;
+                    
+                case 4:
+                    // Show duplicate manager
+                    showDuplicateManager();
+                    return;
+                    
+                default:
+                    return;
+            }
+
+            updateDashboard();
+            updateTransactionsTable();
+            saveUserData();
+            
+            if (choiceNum !== 4) {
+                alert('Duplicate resolved!');
+            }
+        }
+
+        function showDuplicateManager() {
+            const duplicateGroups = {};
+            
+            // Group duplicates
+            transactions.forEach(t => {
+                if (t.isDuplicateFlag && t.duplicateGroup) {
+                    if (!duplicateGroups[t.duplicateGroup]) {
+                        duplicateGroups[t.duplicateGroup] = [];
+                    }
+                    duplicateGroups[t.duplicateGroup].push(t);
+                }
+            });
+
+            let message = "DUPLICATE MANAGER\n\n";
+            message += "Flagged transactions excluded from totals:\n\n";
+
+            Object.keys(duplicateGroups).forEach((groupId, index) => {
+                const group = duplicateGroups[groupId];
+                message += `GROUP ${index + 1}:\n`;
+                group.forEach((t, i) => {
+                    message += `  ${i + 1}. ${formatDate(t.date)} - ${t.description} - ${formatCurrency(t.amount)}\n`;
+                });
+                message += "\n";
+            });
+
+            message += "Go to Transactions tab to resolve individual duplicates,\n";
+            message += "or use bulk operations to manage multiple transactions.";
+
+            alert(message);
         }
 
         function updateRecentTransactions() {
             const recent = transactions
+                .filter(t => !t.excludeFromTotals) // Exclude flagged duplicates
                 .sort((a, b) => new Date(b.date) - new Date(a.date))
                 .slice(0, 5);
 
@@ -763,14 +917,24 @@
             filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
             
             tbody.innerHTML = filteredTransactions.map(t => `
-                <tr>
+                <tr style="${t.isDuplicateFlag ? 'background-color: #fef3cd; border-left: 4px solid #f59e0b;' : ''}">
                     <td><input type="checkbox" class="transaction-checkbox" value="${t.id}" onchange="updateBulkActions()"></td>
                     <td>${formatDate(t.date)}</td>
-                    <td>${t.description}</td>
-                    <td style="color: ${t.amount > 0 ? 'green' : 'red'};">${formatCurrency(t.amount)}</td>
+                    <td>
+                        ${t.description}
+                        ${t.isDuplicateFlag ? '<span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.7em; margin-left: 5px;">DUPLICATE?</span>' : ''}
+                    </td>
+                    <td style="color: ${t.amount > 0 ? 'green' : 'red'};">
+                        ${formatCurrency(t.amount)}
+                        ${t.excludeFromTotals ? '<br><small style="color: #f59e0b;">Excluded from totals</small>' : ''}
+                    </td>
                     <td>${t.category || 'Uncategorized'}</td>
                     <td>
                         <button class="btn btn-secondary" onclick="editTransaction('${t.id}')" style="padding: 5px 10px; margin: 2px;">Edit</button>
+                        ${t.isDuplicateFlag ? 
+                            `<button class="btn" onclick="resolveDuplicate('${t.id}')" style="padding: 5px 10px; margin: 2px; background: #059669;">Resolve</button>` :
+                            ''
+                        }
                         <button class="btn btn-danger" onclick="deleteTransaction('${t.id}')" style="padding: 5px 10px; margin: 2px;">Delete</button>
                     </td>
                 </tr>
@@ -1259,14 +1423,43 @@
                     importDate: new Date().toISOString()
                 };
 
-                // Check for duplicates with more flexible matching
-                const isDuplicate = transactions.some(t => 
+                // Check for duplicates with smart handling
+                const potentialDuplicate = transactions.find(t => 
                     t.date === transaction.date && 
                     t.description.toLowerCase() === transaction.description.toLowerCase() && 
                     Math.abs(t.amount - transaction.amount) < 0.01
                 );
 
-                if (!isDuplicate) {
+                if (potentialDuplicate && !potentialDuplicate.isDuplicateFlag) {
+                    // Mark both transactions as potential duplicates
+                    transaction.isDuplicateFlag = true;
+                    transaction.duplicateGroup = potentialDuplicate.id;
+                    transaction.excludeFromTotals = true;
+                    
+                    potentialDuplicate.isDuplicateFlag = true;
+                    potentialDuplicate.duplicateGroup = potentialDuplicate.id; // Group leader
+                    potentialDuplicate.excludeFromTotals = true;
+                    
+                    transactions.push(transaction);
+                    importedCount++;
+                    skippedCount++; // Also count as flagged
+                    importErrors.push(`Row ${index + 2}: Potential duplicate flagged for review`);
+
+                    // Detect potential subscriptions (negative amounts, recurring patterns)
+                    if (amount < 0) {
+                        detectSubscription(transaction, detectedSubscriptions);
+                    }
+                } else if (potentialDuplicate && potentialDuplicate.isDuplicateFlag) {
+                    // Add to existing duplicate group
+                    transaction.isDuplicateFlag = true;
+                    transaction.duplicateGroup = potentialDuplicate.duplicateGroup;
+                    transaction.excludeFromTotals = true;
+                    
+                    transactions.push(transaction);
+                    importedCount++;
+                    importErrors.push(`Row ${index + 2}: Added to duplicate group for review`);
+                } else {
+                    // No duplicate, import normally
                     transactions.push(transaction);
                     importedCount++;
 
@@ -1274,8 +1467,6 @@
                     if (amount < 0) {
                         detectSubscription(transaction, detectedSubscriptions);
                     }
-                } else {
-                    skippedCount++;
                 }
             });
 
@@ -1479,25 +1670,98 @@
             const transaction = transactions.find(t => t.id === id);
             if (!transaction) return;
 
-            const newDescription = prompt('Edit description:', transaction.description);
-            if (newDescription !== null) {
-                transaction.description = newDescription;
-                
-                const newAmount = prompt('Edit amount:', transaction.amount);
-                if (newAmount !== null && !isNaN(parseFloat(newAmount))) {
-                    transaction.amount = parseFloat(newAmount);
-                }
-
-                const allCategories = [...categories.income, ...categories.expense, 'Uncategorized'];
-                const newCategory = prompt('Edit category:', transaction.category);
-                if (newCategory !== null) {
-                    transaction.category = newCategory;
-                }
-
-                updateDashboard();
-                updateTransactionsTable();
-                saveUserData();
+            // Show the edit form
+            const form = document.getElementById('editTransactionForm');
+            form.classList.remove('hidden');
+            
+            // Populate the form
+            document.getElementById('editTransactionDate').value = transaction.date;
+            document.getElementById('editTransactionDescription').value = transaction.description;
+            document.getElementById('editTransactionAmount').value = transaction.amount;
+            
+            // Populate categories dropdown
+            const categorySelect = document.getElementById('editTransactionCategory');
+            const incomeOptgroup = categorySelect.querySelector('optgroup[label="Income Categories"]');
+            const expenseOptgroup = categorySelect.querySelector('optgroup[label="Expense Categories"]');
+            
+            incomeOptgroup.innerHTML = categories.income.map(cat => 
+                `<option value="${cat}" ${transaction.category === cat ? 'selected' : ''}>${cat}</option>`
+            ).join('');
+            
+            expenseOptgroup.innerHTML = categories.expense.map(cat => 
+                `<option value="${cat}" ${transaction.category === cat ? 'selected' : ''}>${cat}</option>`
+            ).join('');
+            
+            // Add Uncategorized option
+            if (!transaction.category || transaction.category === 'Uncategorized') {
+                expenseOptgroup.innerHTML = '<option value="Uncategorized" selected>Uncategorized</option>' + expenseOptgroup.innerHTML;
+            } else {
+                expenseOptgroup.innerHTML = '<option value="Uncategorized">Uncategorized</option>' + expenseOptgroup.innerHTML;
             }
+            
+            // Store the transaction ID for saving
+            form.setAttribute('data-editing-id', id);
+            
+            // Scroll to the form
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function saveTransactionEdit() {
+            const form = document.getElementById('editTransactionForm');
+            const transactionId = form.getAttribute('data-editing-id');
+            const transaction = transactions.find(t => t.id === transactionId);
+            
+            if (!transaction) {
+                alert('Transaction not found');
+                return;
+            }
+
+            // Get form values
+            const newDate = document.getElementById('editTransactionDate').value;
+            const newDescription = document.getElementById('editTransactionDescription').value.trim();
+            const newAmount = parseFloat(document.getElementById('editTransactionAmount').value);
+            const newCategory = document.getElementById('editTransactionCategory').value;
+
+            // Validate inputs
+            if (!newDate) {
+                alert('Please enter a date');
+                return;
+            }
+            if (!newDescription) {
+                alert('Please enter a description');
+                return;
+            }
+            if (isNaN(newAmount)) {
+                alert('Please enter a valid amount');
+                return;
+            }
+            if (!newCategory) {
+                alert('Please select a category');
+                return;
+            }
+
+            // Update the transaction
+            transaction.date = newDate;
+            transaction.description = newDescription;
+            transaction.amount = newAmount;
+            transaction.category = newCategory;
+            transaction.lastModified = new Date().toISOString();
+
+            // Update displays and save
+            updateDashboard();
+            updateTransactionsTable();
+            saveUserData();
+            
+            // Hide the form
+            cancelTransactionEdit();
+            
+            alert('Transaction updated successfully!');
+        }
+
+        function cancelTransactionEdit() {
+            const form = document.getElementById('editTransactionForm');
+            form.classList.add('hidden');
+            form.removeAttribute('data-editing-id');
         }
 
         function deleteTransaction(id) { 
