@@ -649,19 +649,81 @@
 
         function updateTransactionsTable() {
             const tbody = document.querySelector('#transactionsTable tbody');
-            tbody.innerHTML = transactions.map(t => `
+            const searchTerm = document.getElementById('transactionSearch')?.value.toLowerCase() || '';
+            const categoryFilter = document.getElementById('categoryFilter')?.value || '';
+            
+            let filteredTransactions = transactions;
+            
+            // Apply search filter
+            if (searchTerm) {
+                filteredTransactions = filteredTransactions.filter(t => 
+                    t.description.toLowerCase().includes(searchTerm) ||
+                    t.category.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // Apply category filter
+            if (categoryFilter) {
+                if (categoryFilter === 'uncategorized') {
+                    filteredTransactions = filteredTransactions.filter(t => 
+                        !t.category || t.category === 'Uncategorized'
+                    );
+                } else {
+                    filteredTransactions = filteredTransactions.filter(t => 
+                        t.category === categoryFilter
+                    );
+                }
+            }
+            
+            // Sort by date (newest first)
+            filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            tbody.innerHTML = filteredTransactions.map(t => `
                 <tr>
                     <td>${formatDate(t.date)}</td>
                     <td>${t.description}</td>
                     <td style="color: ${t.amount > 0 ? 'green' : 'red'};">${formatCurrency(t.amount)}</td>
                     <td>${t.category || 'Uncategorized'}</td>
                     <td>
-                        <button class="btn btn-secondary" onclick="editTransaction('${t.id}')">Edit</button>
-                        <button class="btn btn-danger" onclick="deleteTransaction('${t.id}')">Delete</button>
+                        <button class="btn btn-secondary" onclick="editTransaction('${t.id}')" style="padding: 5px 10px; margin: 2px;">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteTransaction('${t.id}')" style="padding: 5px 10px; margin: 2px;">Delete</button>
                     </td>
                 </tr>
             `).join('');
+            
+            // Update category filter options
+            updateCategoryFilterOptions();
         }
+
+        function updateCategoryFilterOptions() {
+            const categoryFilter = document.getElementById('categoryFilter');
+            if (!categoryFilter) return;
+            
+            const allCategories = [...new Set(transactions.map(t => t.category).filter(c => c))];
+            const currentValue = categoryFilter.value;
+            
+            categoryFilter.innerHTML = `
+                <option value="">All Categories</option>
+                <option value="uncategorized">Uncategorized Only</option>
+                ${allCategories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+            `;
+            
+            categoryFilter.value = currentValue;
+        }
+
+        // Add event listeners for search and filter
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('transactionSearch');
+            const categoryFilter = document.getElementById('categoryFilter');
+            
+            if (searchInput) {
+                searchInput.addEventListener('input', updateTransactionsTable);
+            }
+            
+            if (categoryFilter) {
+                categoryFilter.addEventListener('change', updateTransactionsTable);
+            }
+        });
 
         function updateCategoriesView() {
             const incomeContainer = document.getElementById('incomeCategories');
@@ -698,7 +760,210 @@
             });
         }
 
-        // Placeholder functions that will be implemented
+        // CSV Import functionality
+        let csvData = [];
+        let csvHeaders = [];
+
+        // Set up file input and upload area
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#667eea';
+                uploadArea.style.background = '#f7fafc';
+            });
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#cbd5e0';
+                uploadArea.style.background = 'transparent';
+            });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#cbd5e0';
+                uploadArea.style.background = 'transparent';
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFileUpload(files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            });
+        });
+
+        function handleFileUpload(file) {
+            if (!file.name.toLowerCase().match(/\.(csv|xlsx|xls)$/)) {
+                alert('Please upload a CSV or Excel file.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseCSV(text);
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSV(text) {
+            const lines = text.split('\n').filter(line => line.trim());
+            if (lines.length < 2) {
+                alert('CSV file must have at least a header and one data row.');
+                return;
+            }
+
+            csvHeaders = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+            csvData = lines.slice(1).map(line => {
+                const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+                return csvHeaders.reduce((obj, header, index) => {
+                    obj[header] = values[index] || '';
+                    return obj;
+                }, {});
+            });
+
+            showColumnMapping();
+        }
+
+        function showColumnMapping() {
+            const mappingSection = document.getElementById('mappingSection');
+            const columnMapping = document.getElementById('columnMapping');
+            
+            mappingSection.classList.remove('hidden');
+
+            const fieldMappings = [
+                { field: 'date', label: 'Date', required: true },
+                { field: 'description', label: 'Description', required: true },
+                { field: 'amount', label: 'Amount', required: true },
+                { field: 'category', label: 'Category', required: false }
+            ];
+
+            columnMapping.innerHTML = fieldMappings.map(mapping => `
+                <div class="form-group">
+                    <label>${mapping.label} ${mapping.required ? '*' : ''}</label>
+                    <select id="mapping_${mapping.field}" class="form-control">
+                        <option value="">-- Select Column --</option>
+                        ${csvHeaders.map(header => `<option value="${header}">${header}</option>`).join('')}
+                    </select>
+                </div>
+            `).join('');
+
+            // Auto-detect common column names
+            autoMapColumns();
+        }
+
+        function autoMapColumns() {
+            const commonMappings = {
+                date: ['date', 'transaction date', 'posted date', 'trans date'],
+                description: ['description', 'memo', 'payee', 'merchant', 'details'],
+                amount: ['amount', 'transaction amount', 'debit', 'credit'],
+                category: ['category', 'transaction category', 'type']
+            };
+
+            Object.keys(commonMappings).forEach(field => {
+                const select = document.getElementById(`mapping_${field}`);
+                const matchingHeader = csvHeaders.find(header => 
+                    commonMappings[field].some(pattern => 
+                        header.toLowerCase().includes(pattern.toLowerCase())
+                    )
+                );
+                if (matchingHeader) {
+                    select.value = matchingHeader;
+                }
+            });
+        }
+
+        function processImport() {
+            const mappings = {
+                date: document.getElementById('mapping_date').value,
+                description: document.getElementById('mapping_description').value,
+                amount: document.getElementById('mapping_amount').value,
+                category: document.getElementById('mapping_category').value
+            };
+
+            if (!mappings.date || !mappings.description || !mappings.amount) {
+                alert('Please map the required fields: Date, Description, and Amount');
+                return;
+            }
+
+            const accountType = document.getElementById('accountType').value;
+            let importedCount = 0;
+
+            csvData.forEach(row => {
+                const dateStr = row[mappings.date];
+                const description = row[mappings.description];
+                const amountStr = row[mappings.amount];
+                const category = row[mappings.category] || 'Uncategorized';
+
+                if (!dateStr || !description || !amountStr) return;
+
+                // Parse date
+                let date;
+                try {
+                    date = new Date(dateStr).toISOString().split('T')[0];
+                } catch (e) {
+                    console.warn('Invalid date:', dateStr);
+                    return;
+                }
+
+                // Parse amount
+                let amount = parseFloat(amountStr.replace(/[$,]/g, ''));
+                if (isNaN(amount)) {
+                    console.warn('Invalid amount:', amountStr);
+                    return;
+                }
+
+                // For credit cards, flip the sign if needed
+                if (accountType === 'credit' && amount > 0) {
+                    amount = -amount;
+                }
+
+                const transaction = {
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    date: date,
+                    description: description.trim(),
+                    amount: amount,
+                    category: category.trim(),
+                    accountType: accountType,
+                    imported: true,
+                    importDate: new Date().toISOString()
+                };
+
+                // Check for duplicates
+                const isDuplicate = transactions.some(t => 
+                    t.date === transaction.date && 
+                    t.description === transaction.description && 
+                    Math.abs(t.amount - transaction.amount) < 0.01
+                );
+
+                if (!isDuplicate) {
+                    transactions.push(transaction);
+                    importedCount++;
+                }
+            });
+
+            if (importedCount > 0) {
+                alert(`Successfully imported ${importedCount} transactions!`);
+                updateDashboard();
+                updateTransactionsTable();
+                saveUserData();
+                
+                // Reset the import form
+                document.getElementById('mappingSection').classList.add('hidden');
+                document.getElementById('fileInput').value = '';
+                csvData = [];
+                csvHeaders = [];
+            } else {
+                alert('No new transactions were imported. They may already exist.');
+            }
+        }
+
+        // Other functions
         function addCategory(type) { 
             const name = prompt(`Enter ${type} category name:`);
             if (name && name.trim()) {
@@ -717,7 +982,28 @@
         }
 
         function editTransaction(id) { 
-            alert('Transaction editing coming soon'); 
+            const transaction = transactions.find(t => t.id === id);
+            if (!transaction) return;
+
+            const newDescription = prompt('Edit description:', transaction.description);
+            if (newDescription !== null) {
+                transaction.description = newDescription;
+                
+                const newAmount = prompt('Edit amount:', transaction.amount);
+                if (newAmount !== null && !isNaN(parseFloat(newAmount))) {
+                    transaction.amount = parseFloat(newAmount);
+                }
+
+                const allCategories = [...categories.income, ...categories.expense, 'Uncategorized'];
+                const newCategory = prompt('Edit category:', transaction.category);
+                if (newCategory !== null) {
+                    transaction.category = newCategory;
+                }
+
+                updateDashboard();
+                updateTransactionsTable();
+                saveUserData();
+            }
         }
 
         function deleteTransaction(id) { 
@@ -729,11 +1015,60 @@
             }
         }
 
+        function exportData() {
+            const dataStr = JSON.stringify({
+                transactions,
+                categories,
+                rules,
+                subscriptions,
+                exportDate: new Date().toISOString()
+            }, null, 2);
+            
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `financial-data-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (confirm('This will overwrite your current data. Continue?')) {
+                            transactions = data.transactions || [];
+                            categories = data.categories || categories;
+                            rules = data.rules || [];
+                            subscriptions = data.subscriptions || [];
+                            
+                            updateDashboard();
+                            updateTransactionsTable();
+                            updateCategoriesView();
+                            saveUserData();
+                            
+                            alert('Data imported successfully!');
+                        }
+                    } catch (error) {
+                        alert('Invalid file format.');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
         function addSubscription() { alert('Subscription management coming soon'); }
         function addRule() { alert('Rules management coming soon'); }
-        function exportData() { alert('Export functionality coming soon'); }
-        function importData() { alert('Import functionality coming soon'); }
-        function processImport() { alert('Import processing coming soon'); }
 
         // Initialize the dashboard
         updateDashboard();
