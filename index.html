@@ -720,21 +720,14 @@
         }
 
         function updateDashboard() {
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
+            // Use ALL transactions, not just current month
+            const activeTransactions = transactions.filter(t => !t.excludeFromTotals);
 
-            const monthlyTransactions = transactions.filter(t => {
-                const date = new Date(t.date);
-                return date.getMonth() === currentMonth && 
-                       date.getFullYear() === currentYear &&
-                       !t.excludeFromTotals; // Exclude flagged duplicates
-            });
-
-            const totalIncome = monthlyTransactions
+            const totalIncome = activeTransactions
                 .filter(t => t.amount > 0)
                 .reduce((sum, t) => sum + t.amount, 0);
 
-            const totalExpenses = monthlyTransactions
+            const totalExpenses = activeTransactions
                 .filter(t => t.amount < 0)
                 .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
@@ -752,6 +745,59 @@
             // Add duplicate alert if there are flagged duplicates
             updateDuplicateAlert(duplicateCount);
             updateRecentTransactions();
+            updateCategoryBreakdown();
+        }
+
+        function updateCategoryBreakdown() {
+            const container = document.getElementById('categoryBreakdown');
+            const activeTransactions = transactions.filter(t => !t.excludeFromTotals);
+            
+            if (activeTransactions.length === 0) {
+                container.innerHTML = '<p>Categories will appear here once you add transactions.</p>';
+                return;
+            }
+
+            // Group transactions by category and calculate totals
+            const categoryTotals = {};
+            activeTransactions.forEach(t => {
+                const category = t.category || 'Uncategorized';
+                if (!categoryTotals[category]) {
+                    categoryTotals[category] = 0;
+                }
+                categoryTotals[category] += Math.abs(t.amount);
+            });
+
+            // Sort categories by total amount (descending)
+            const sortedCategories = Object.entries(categoryTotals)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 10); // Show top 10 categories
+
+            const totalAmount = Object.values(categoryTotals).reduce((sum, amount) => sum + amount, 0);
+
+            container.innerHTML = `
+                <div style="max-height: 300px; overflow-y: auto;">
+                    ${sortedCategories.map(([category, amount]) => {
+                        const percentage = totalAmount > 0 ? (amount / totalAmount * 100).toFixed(1) : 0;
+                        return `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+                                <div>
+                                    <strong>${category}</strong>
+                                    <div style="width: 100px; height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 3px;">
+                                        <div style="width: ${percentage}%; height: 100%; background: #667eea; border-radius: 3px;"></div>
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: bold;">${formatCurrency(amount)}</div>
+                                    <div style="font-size: 0.8em; color: #718096;">${percentage}%</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 2px solid #e2e8f0; font-weight: bold;">
+                    Total: ${formatCurrency(totalAmount)}
+                </div>
+            `;
         }
 
         function updateDuplicateAlert(duplicateCount) {
