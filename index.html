@@ -390,13 +390,37 @@
             <div class="grid">
                 <div class="card">
                     <h3>Income Categories</h3>
+                    
+                    <!-- Add Income Category Form -->
+                    <div id="addIncomeCategoryForm" class="hidden" style="background: #f0fff4; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <input type="text" id="newIncomeCategory" class="form-control" placeholder="Enter income category name">
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn" onclick="saveNewCategory('income')">Add Category</button>
+                            <button class="btn btn-secondary" onclick="cancelAddCategory('income')">Cancel</button>
+                        </div>
+                    </div>
+                    
                     <div id="incomeCategories"></div>
-                    <button class="btn" onclick="addCategory('income')">Add Income Category</button>
+                    <button class="btn" onclick="toggleAddCategoryForm('income')">Add Income Category</button>
                 </div>
                 <div class="card">
                     <h3>Expense Categories</h3>
+                    
+                    <!-- Add Expense Category Form -->
+                    <div id="addExpenseCategoryForm" class="hidden" style="background: #fff5f5; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <input type="text" id="newExpenseCategory" class="form-control" placeholder="Enter expense category name">
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn" onclick="saveNewCategory('expense')">Add Category</button>
+                            <button class="btn btn-secondary" onclick="cancelAddCategory('expense')">Cancel</button>
+                        </div>
+                    </div>
+                    
                     <div id="expenseCategories"></div>
-                    <button class="btn" onclick="addCategory('expense')">Add Expense Category</button>
+                    <button class="btn" onclick="toggleAddCategoryForm('expense')">Add Expense Category</button>
                 </div>
             </div>
         </div>
@@ -426,8 +450,47 @@
                 <p>Create rules to automatically categorize transactions based on description patterns. Rules are applied in order when importing new transactions.</p>
                 
                 <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                    <button class="btn" onclick="addRule()">Add New Rule</button>
+                    <button class="btn" onclick="toggleAddRuleForm()">Add New Rule</button>
                     <button class="btn btn-secondary" onclick="applyRulesToExistingTransactions()">Apply Rules to Existing Transactions</button>
+                </div>
+                
+                <!-- Add Rule Form -->
+                <div id="addRuleForm" class="card hidden" style="background: #f7fafc; border: 2px solid #e2e8f0;">
+                    <h4>Create New Rule</h4>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label>Rule Name</label>
+                            <input type="text" id="newRuleName" class="form-control" placeholder="e.g., Netflix Subscription">
+                        </div>
+                        <div class="form-group">
+                            <label>If Description</label>
+                            <select id="newRuleConditionType" class="form-control">
+                                <option value="contains">Contains</option>
+                                <option value="starts_with">Starts With</option>
+                                <option value="ends_with">Ends With</option>
+                                <option value="equals">Equals Exactly</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Text to Match</label>
+                        <input type="text" id="newRuleConditionValue" class="form-control" placeholder="e.g., NETFLIX">
+                    </div>
+                    <div class="form-group">
+                        <label>Then Set Category To</label>
+                        <select id="newRuleCategory" class="form-control">
+                            <optgroup label="Income Categories">
+                                <!-- Will be populated dynamically -->
+                            </optgroup>
+                            <optgroup label="Expense Categories">
+                                <!-- Will be populated dynamically -->
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn" onclick="saveNewRule()">Save Rule</button>
+                        <button class="btn btn-secondary" onclick="cancelAddRule()">Cancel</button>
+                    </div>
                 </div>
                 
                 <div id="rulesList"></div>
@@ -728,6 +791,24 @@
             if (categoryFilter) {
                 categoryFilter.addEventListener('change', updateTransactionsTable);
             }
+
+            // Add Enter key support for forms
+            document.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    // Check if we're in a category form
+                    if (e.target.id === 'newIncomeCategory') {
+                        saveNewCategory('income');
+                    } else if (e.target.id === 'newExpenseCategory') {
+                        saveNewCategory('expense');
+                    } else if (e.target.closest('#addRuleForm')) {
+                        // If in rule form, save the rule
+                        const saveButton = document.querySelector('#addRuleForm .btn[onclick*="Rule"]');
+                        if (saveButton) {
+                            saveButton.click();
+                        }
+                    }
+                }
+            });
         });
 
         function updateCategoriesView() {
@@ -1110,16 +1191,50 @@
 
         // Other functions
         function addCategory(type) { 
-            const name = prompt(`Enter ${type} category name:`);
-            if (name && name.trim()) {
-                categories[type].push(name.trim());
-                updateCategoriesView();
-                saveUserData();
+            toggleAddCategoryForm(type);
+        }
+
+        function toggleAddCategoryForm(type) {
+            const form = document.getElementById(`add${type.charAt(0).toUpperCase() + type.slice(1)}CategoryForm`);
+            const input = document.getElementById(`new${type.charAt(0).toUpperCase() + type.slice(1)}Category`);
+            
+            if (form.classList.contains('hidden')) {
+                form.classList.remove('hidden');
+                input.value = '';
+                input.focus();
+            } else {
+                form.classList.add('hidden');
             }
         }
 
+        function saveNewCategory(type) {
+            const input = document.getElementById(`new${type.charAt(0).toUpperCase() + type.slice(1)}Category`);
+            const name = input.value.trim();
+            
+            if (!name) {
+                alert('Please enter a category name');
+                return;
+            }
+            
+            if (categories[type].includes(name)) {
+                alert('Category already exists');
+                return;
+            }
+            
+            categories[type].push(name);
+            updateCategoriesView();
+            saveUserData();
+            
+            // Hide the form
+            document.getElementById(`add${type.charAt(0).toUpperCase() + type.slice(1)}CategoryForm`).classList.add('hidden');
+        }
+
+        function cancelAddCategory(type) {
+            document.getElementById(`add${type.charAt(0).toUpperCase() + type.slice(1)}CategoryForm`).classList.add('hidden');
+        }
+
         function deleteCategory(type, name) {
-            if (confirm(`Delete ${name} category?`)) {
+            if (confirm(`Delete "${name}" category?`)) {
                 categories[type] = categories[type].filter(cat => cat !== name);
                 updateCategoriesView();
                 saveUserData();
@@ -1395,32 +1510,69 @@
             }
         }
         function addRule() { 
-            const ruleName = prompt('Enter rule name:');
-            if (!ruleName) return;
+            toggleAddRuleForm();
+        }
 
-            const condition = prompt('Enter condition (what to look for in description):');
-            if (!condition) return;
+        function toggleAddRuleForm() {
+            const form = document.getElementById('addRuleForm');
+            const isHidden = form.classList.contains('hidden');
+            
+            if (isHidden) {
+                // Show the form and populate categories
+                form.classList.remove('hidden');
+                populateRuleCategoryDropdown();
+                // Clear any previous values
+                document.getElementById('newRuleName').value = '';
+                document.getElementById('newRuleConditionValue').value = '';
+                document.getElementById('newRuleConditionType').value = 'contains';
+            } else {
+                // Hide the form
+                form.classList.add('hidden');
+            }
+        }
 
-            const conditionType = prompt('Condition type:\n1. Contains\n2. Starts with\n3. Ends with\n4. Equals\nEnter number (1-4):', '1');
-            const typeMap = {'1': 'contains', '2': 'starts_with', '3': 'ends_with', '4': 'equals'};
+        function populateRuleCategoryDropdown() {
+            const select = document.getElementById('newRuleCategory');
+            const incomeOptgroup = select.querySelector('optgroup[label="Income Categories"]');
+            const expenseOptgroup = select.querySelector('optgroup[label="Expense Categories"]');
             
-            const allCategories = [...categories.income, ...categories.expense];
-            const category = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, '1');
-            const selectedCategory = allCategories[parseInt(category) - 1];
+            incomeOptgroup.innerHTML = categories.income.map(cat => 
+                `<option value="${cat}">${cat}</option>`
+            ).join('');
             
-            if (!selectedCategory) {
-                alert('Invalid category selection');
+            expenseOptgroup.innerHTML = categories.expense.map(cat => 
+                `<option value="${cat}">${cat}</option>`
+            ).join('');
+        }
+
+        function saveNewRule() {
+            const name = document.getElementById('newRuleName').value.trim();
+            const conditionType = document.getElementById('newRuleConditionType').value;
+            const conditionValue = document.getElementById('newRuleConditionValue').value.trim();
+            const category = document.getElementById('newRuleCategory').value;
+
+            // Validate inputs
+            if (!name) {
+                alert('Please enter a rule name');
+                return;
+            }
+            if (!conditionValue) {
+                alert('Please enter text to match');
+                return;
+            }
+            if (!category) {
+                alert('Please select a category');
                 return;
             }
 
             const rule = {
                 id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                name: ruleName,
+                name: name,
                 conditions: [{
-                    type: typeMap[conditionType] || 'contains',
-                    value: condition
+                    type: conditionType,
+                    value: conditionValue
                 }],
-                category: selectedCategory,
+                category: category,
                 active: true,
                 created: new Date().toISOString()
             };
@@ -1428,28 +1580,39 @@
             rules.push(rule);
             updateRulesView();
             saveUserData();
+            
+            // Hide the form
+            document.getElementById('addRuleForm').classList.add('hidden');
+            
+            // Show success message
+            alert(`Rule "${name}" created successfully!`);
+        }
+
+        function cancelAddRule() {
+            document.getElementById('addRuleForm').classList.add('hidden');
         }
 
         function updateRulesView() {
             const rulesList = document.getElementById('rulesList');
             
             rulesList.innerHTML = rules.length ? rules.map(rule => `
-                <div class="card" style="margin-bottom: 15px;">
+                <div class="card" style="margin-bottom: 15px; ${!rule.active ? 'opacity: 0.6;' : ''}">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
+                        <div style="flex: 1;">
                             <h4 style="margin: 0; color: ${rule.active ? '#4a5568' : '#a0aec0'};">${rule.name}</h4>
                             <p style="margin: 5px 0; font-size: 0.9em; color: #718096;">
                                 If description <strong>${rule.conditions[0].type.replace('_', ' ')}</strong> 
                                 "<strong>${rule.conditions[0].value}</strong>" → 
                                 Set category to <strong>${rule.category}</strong>
                             </p>
+                            <small style="color: #a0aec0;">Created: ${formatDate(rule.created)}</small>
                         </div>
-                        <div>
-                            <button class="btn btn-secondary" onclick="toggleRule('${rule.id}')" style="padding: 5px 10px; margin: 2px;">
+                        <div style="display: flex; gap: 5px;">
+                            <button class="btn ${rule.active ? 'btn-secondary' : ''}" onclick="toggleRule('${rule.id}')" style="padding: 8px 12px;">
                                 ${rule.active ? 'Disable' : 'Enable'}
                             </button>
-                            <button class="btn" onclick="editRule('${rule.id}')" style="padding: 5px 10px; margin: 2px;">Edit</button>
-                            <button class="btn btn-danger" onclick="deleteRule('${rule.id}')" style="padding: 5px 10px; margin: 2px;">Delete</button>
+                            <button class="btn btn-secondary" onclick="editRule('${rule.id}')" style="padding: 8px 12px;">Edit</button>
+                            <button class="btn btn-danger" onclick="deleteRule('${rule.id}')" style="padding: 8px 12px;">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -1469,37 +1632,73 @@
             const rule = rules.find(r => r.id === ruleId);
             if (!rule) return;
 
-            const newName = prompt('Edit rule name:', rule.name);
-            if (newName !== null) rule.name = newName;
-
-            const newCondition = prompt('Edit condition:', rule.conditions[0].value);
-            if (newCondition !== null) rule.conditions[0].value = newCondition;
-
-            const conditionType = prompt('Condition type:\n1. Contains\n2. Starts with\n3. Ends with\n4. Equals\nEnter number (1-4):', 
-                rule.conditions[0].type === 'contains' ? '1' : 
-                rule.conditions[0].type === 'starts_with' ? '2' : 
-                rule.conditions[0].type === 'ends_with' ? '3' : '4');
+            // Show the edit form (we'll reuse the add form)
+            const form = document.getElementById('addRuleForm');
+            form.classList.remove('hidden');
+            populateRuleCategoryDropdown();
             
-            const typeMap = {'1': 'contains', '2': 'starts_with', '3': 'ends_with', '4': 'equals'};
-            if (typeMap[conditionType]) {
-                rule.conditions[0].type = typeMap[conditionType];
+            // Populate with existing values
+            document.getElementById('newRuleName').value = rule.name;
+            document.getElementById('newRuleConditionType').value = rule.conditions[0].type;
+            document.getElementById('newRuleConditionValue').value = rule.conditions[0].value;
+            document.getElementById('newRuleCategory').value = rule.category;
+            
+            // Change the save button to update
+            const saveButton = form.querySelector('.btn[onclick="saveNewRule()"]');
+            saveButton.textContent = 'Update Rule';
+            saveButton.setAttribute('onclick', `updateRule('${ruleId}')`);
+            
+            // Change the form title
+            form.querySelector('h4').textContent = 'Edit Rule';
+        }
+
+        function updateRule(ruleId) {
+            const rule = rules.find(r => r.id === ruleId);
+            if (!rule) return;
+
+            const name = document.getElementById('newRuleName').value.trim();
+            const conditionType = document.getElementById('newRuleConditionType').value;
+            const conditionValue = document.getElementById('newRuleConditionValue').value.trim();
+            const category = document.getElementById('newRuleCategory').value;
+
+            // Validate inputs
+            if (!name || !conditionValue || !category) {
+                alert('Please fill in all fields');
+                return;
             }
 
-            const allCategories = [...categories.income, ...categories.expense];
-            const currentIndex = allCategories.indexOf(rule.category) + 1;
-            const category = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, currentIndex.toString());
-            const selectedCategory = allCategories[parseInt(category) - 1];
-            
-            if (selectedCategory) {
-                rule.category = selectedCategory;
-            }
+            // Update the rule
+            rule.name = name;
+            rule.conditions[0].type = conditionType;
+            rule.conditions[0].value = conditionValue;
+            rule.category = category;
+            rule.updated = new Date().toISOString();
 
             updateRulesView();
             saveUserData();
+            
+            // Reset the form
+            resetAddRuleForm();
+            
+            alert(`Rule "${name}" updated successfully!`);
+        }
+
+        function resetAddRuleForm() {
+            const form = document.getElementById('addRuleForm');
+            form.classList.add('hidden');
+            
+            // Reset the button and title
+            const saveButton = form.querySelector('.btn[onclick*="Rule"]');
+            saveButton.textContent = 'Save Rule';
+            saveButton.setAttribute('onclick', 'saveNewRule()');
+            form.querySelector('h4').textContent = 'Create New Rule';
         }
 
         function deleteRule(ruleId) {
-            if (confirm('Delete this rule?')) {
+            const rule = rules.find(r => r.id === ruleId);
+            if (!rule) return;
+            
+            if (confirm(`Delete rule "${rule.name}"?`)) {
                 rules = rules.filter(r => r.id !== ruleId);
                 updateRulesView();
                 saveUserData();
