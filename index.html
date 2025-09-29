@@ -119,6 +119,14 @@
             background: #c53030;
         }
 
+        .btn-warning {
+            background: #f59e0b;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
         .form-group {
             margin-bottom: 20px;
         }
@@ -297,6 +305,64 @@
             margin-bottom: 10px;
         }
 
+        .alias-tag {
+            display: inline-block;
+            background: #e2e8f0;
+            color: #4a5568;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+
+        .suggested-alias {
+            background: #fef3cd;
+            color: #92400e;
+            border: 1px dashed #f59e0b;
+        }
+
+        .merge-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .merge-dialog-content {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .subscription-item {
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .subscription-item:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
+        .subscription-item.selected {
+            border-color: #667eea;
+            background: #e6fffa;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
@@ -313,6 +379,11 @@
             .header > div {
                 flex-direction: column !important;
                 text-align: center !important;
+            }
+
+            .merge-dialog-content {
+                padding: 20px;
+                margin: 10px;
             }
         }
     </style>
@@ -558,8 +629,12 @@
         <!-- Subscriptions Tab -->
         <div id="subscriptions" class="tab-content">
             <div class="card">
-                <h3>Subscription Management</h3>
-                <button class="btn" onclick="addSubscription()">Add Subscription</button>
+                <h3>🔄 Subscription Management with Smart Matching</h3>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <button class="btn" onclick="addSubscription()">Add Subscription</button>
+                    <button class="btn btn-secondary" onclick="showMergeManager()">Merge Subscriptions</button>
+                    <button class="btn btn-warning" onclick="reviewSuggestedAliases()">Review Suggested Aliases</button>
+                </div>
                 
                 <div id="subscriptionsList"></div>
             </div>
@@ -783,6 +858,41 @@
         </div>
     </div>
 
+    <!-- Merge Dialog -->
+    <div id="mergeDialog" class="merge-dialog hidden">
+        <div class="merge-dialog-content">
+            <h3>🔄 Merge Subscriptions</h3>
+            <p>Select subscriptions to merge. The first selected will be the primary subscription.</p>
+            
+            <div id="mergeSubscriptionsList"></div>
+            
+            <div class="form-group">
+                <label>Add Alias (optional)</label>
+                <input type="text" id="newAliasInput" class="form-control" placeholder="Enter alternative name for this subscription">
+                <small style="color: #718096;">Aliases help match future transactions with different but similar descriptions</small>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn" onclick="executeMerge()" id="mergeBtn" disabled>Merge Selected</button>
+                <button class="btn btn-secondary" onclick="closeMergeDialog()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alias Review Dialog -->
+    <div id="aliasDialog" class="merge-dialog hidden">
+        <div class="merge-dialog-content">
+            <h3>📝 Review Suggested Aliases</h3>
+            <p>These aliases were automatically suggested based on similar transaction descriptions:</p>
+            
+            <div id="suggestedAliasesList"></div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeAliasDialog()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK v9 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
@@ -959,6 +1069,124 @@
                 
             } catch (error) {
                 console.error('Error saving user data:', error);
+            }
+        }
+
+        // Enhanced subscription matching functions
+        function normalizeSubscriptionName(description) {
+            // Remove common variable elements and normalize
+            return description
+                .toLowerCase()
+                .replace(/\b\d{4,}\b/g, '') // Remove long numbers (account numbers, etc.)
+                .replace(/\b[a-z0-9]{8,}\b/gi, '') // Remove long alphanumeric codes
+                .replace(/[*#\-_]/g, ' ') // Remove special characters
+                .replace(/\s+/g, ' ') // Normalize whitespace
+                .trim();
+        }
+
+        function extractVendorKeywords(description) {
+            // Extract first 1-2 significant words as vendor keywords
+            const normalized = normalizeSubscriptionName(description);
+            const words = normalized.split(' ').filter(word => word.length > 2);
+            return words.slice(0, 2).join(' ');
+        }
+
+        function findSimilarSubscription(description, amount) {
+            const normalized = normalizeSubscriptionName(description);
+            const keywords = extractVendorKeywords(description);
+            
+            return subscriptions.find(sub => {
+                // Check aliases first
+                if (sub.aliases && sub.aliases.some(alias => 
+                    normalized.includes(alias.toLowerCase()) || 
+                    alias.toLowerCase().includes(keywords)
+                )) {
+                    return true;
+                }
+                
+                // Check vendor name similarity
+                const subNormalized = normalizeSubscriptionName(sub.vendor);
+                const subKeywords = extractVendorKeywords(sub.vendor);
+                
+                const keywordMatch = keywords.includes(subKeywords) || 
+                                   subKeywords.includes(keywords) ||
+                                   normalized.includes(subNormalized) || 
+                                   subNormalized.includes(normalized);
+                
+                // Amount should be within 50% (allows for price changes)
+                const amountSimilar = Math.abs(sub.amount - amount) / Math.max(sub.amount, amount) < 0.5;
+                
+                return keywordMatch && amountSimilar;
+            });
+        }
+
+        function detectSubscription(transaction, detectedSubscriptions) {
+            const desc = transaction.description.toLowerCase();
+            const amount = Math.abs(transaction.amount);
+            
+            // Common subscription keywords
+            const subscriptionKeywords = [
+                'netflix', 'spotify', 'amazon prime', 'hulu', 'disney', 'apple music',
+                'adobe', 'microsoft', 'google', 'dropbox', 'office 365',
+                'gym', 'fitness', 'insurance', 'phone', 'internet', 'cable',
+                'subscription', 'monthly', 'annual', 'recurring'
+            ];
+
+            const isLikelySubscription = subscriptionKeywords.some(keyword => desc.includes(keyword)) ||
+                                      desc.includes('auto pay') || 
+                                      desc.includes('recurring') ||
+                                      desc.includes('monthly');
+
+            if (isLikelySubscription) {
+                // First, check if this matches an existing subscription (with fuzzy matching)
+                const existingSubscription = findSimilarSubscription(transaction.description, amount);
+                
+                if (existingSubscription) {
+                    // Update existing subscription instead of creating new detection
+                    if (Math.abs(existingSubscription.amount - amount) > 0.01) {
+                        existingSubscription.priceChanged = true;
+                        existingSubscription.newAmount = amount;
+                    }
+                    existingSubscription.lastCharge = transaction.date;
+                    
+                    // Add the transaction description as a potential new alias if it's different
+                    const normalized = normalizeSubscriptionName(transaction.description);
+                    const existingNormalized = normalizeSubscriptionName(existingSubscription.vendor);
+                    if (normalized !== existingNormalized) {
+                        if (!existingSubscription.suggestedAliases) {
+                            existingSubscription.suggestedAliases = [];
+                        }
+                        if (!existingSubscription.suggestedAliases.includes(transaction.description)) {
+                            existingSubscription.suggestedAliases.push(transaction.description);
+                        }
+                    }
+                    return; // Don't add to detected subscriptions
+                }
+                
+                // Check if we already detected this vendor in this import session
+                const existingDetection = detectedSubscriptions.find(sub => {
+                    const subNormalized = normalizeSubscriptionName(sub.vendor);
+                    const transNormalized = normalizeSubscriptionName(transaction.description);
+                    return subNormalized === transNormalized;
+                });
+
+                if (existingDetection) {
+                    existingDetection.transactions.push(transaction);
+                    // Update amount if it's different (price change)
+                    if (Math.abs(existingDetection.amount - amount) > 0.01) {
+                        existingDetection.priceChanged = true;
+                        existingDetection.newAmount = amount;
+                    }
+                } else {
+                    detectedSubscriptions.push({
+                        vendor: transaction.description,
+                        amount: amount,
+                        category: transaction.category,
+                        lastDate: transaction.date,
+                        transactions: [transaction],
+                        priceChanged: false
+                    });
+                }
             }
         }
 
@@ -1701,6 +1929,37 @@
                     }
                 }
             });
+
+            // Set up file input and upload area
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#667eea';
+                uploadArea.style.background = '#f7fafc';
+            });
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#cbd5e0';
+                uploadArea.style.background = 'transparent';
+            });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#cbd5e0';
+                uploadArea.style.background = 'transparent';
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFileUpload(files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            });
         });
 
         function updateCategoriesView() {
@@ -1833,39 +2092,6 @@
         // CSV Import functionality
         let csvData = [];
         let csvHeaders = [];
-
-        // Set up file input and upload area
-        document.addEventListener('DOMContentLoaded', function() {
-            const uploadArea = document.getElementById('uploadArea');
-            const fileInput = document.getElementById('fileInput');
-
-            uploadArea.addEventListener('click', () => fileInput.click());
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.style.borderColor = '#667eea';
-                uploadArea.style.background = '#f7fafc';
-            });
-            uploadArea.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                uploadArea.style.borderColor = '#cbd5e0';
-                uploadArea.style.background = 'transparent';
-            });
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.style.borderColor = '#cbd5e0';
-                uploadArea.style.background = 'transparent';
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    handleFileUpload(files[0]);
-                }
-            });
-
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) {
-                    handleFileUpload(e.target.files[0]);
-                }
-            });
-        });
 
         function handleFileUpload(file) {
             if (!file.name.toLowerCase().match(/\.(csv|xlsx|xls)$/)) {
@@ -2215,48 +2441,6 @@
             return defaultCategory;
         }
 
-        function detectSubscription(transaction, detectedSubscriptions) {
-            const desc = transaction.description.toLowerCase();
-            
-            // Common subscription keywords
-            const subscriptionKeywords = [
-                'netflix', 'spotify', 'amazon prime', 'hulu', 'disney', 'apple music',
-                'adobe', 'microsoft', 'google', 'dropbox', 'office 365',
-                'gym', 'fitness', 'insurance', 'phone', 'internet', 'cable',
-                'subscription', 'monthly', 'annual', 'recurring'
-            ];
-
-            const isLikelySubscription = subscriptionKeywords.some(keyword => desc.includes(keyword)) ||
-                                      desc.includes('auto pay') || 
-                                      desc.includes('recurring') ||
-                                      desc.includes('monthly');
-
-            if (isLikelySubscription) {
-                // Check if we already detected this vendor
-                const existingSubscription = detectedSubscriptions.find(sub => 
-                    sub.vendor.toLowerCase() === transaction.description.toLowerCase()
-                );
-
-                if (existingSubscription) {
-                    existingSubscription.transactions.push(transaction);
-                    // Update amount if it's different (price change)
-                    if (Math.abs(existingSubscription.amount - Math.abs(transaction.amount)) > 0.01) {
-                        existingSubscription.priceChanged = true;
-                        existingSubscription.newAmount = Math.abs(transaction.amount);
-                    }
-                } else {
-                    detectedSubscriptions.push({
-                        vendor: transaction.description,
-                        amount: Math.abs(transaction.amount),
-                        category: transaction.category,
-                        lastDate: transaction.date,
-                        transactions: [transaction],
-                        priceChanged: false
-                    });
-                }
-            }
-        }
-
         function processDetectedSubscriptions(detectedSubscriptions) {
             detectedSubscriptions.forEach(detected => {
                 // Check if subscription already exists
@@ -2286,6 +2470,8 @@
                         autoDetected: true,
                         priceChanged: detected.priceChanged,
                         newAmount: detected.newAmount || detected.amount,
+                        aliases: [], // Initialize aliases array
+                        suggestedAliases: [], // Initialize suggested aliases
                         detectedDate: new Date().toISOString()
                     });
                 } else if (detected.priceChanged) {
@@ -2295,6 +2481,397 @@
                     existingSubscription.lastCharge = detected.lastDate;
                 }
             });
+        }
+
+        // Subscription management functions (enhanced)
+        function addSubscription() { 
+            const vendor = prompt('Enter vendor/service name:');
+            if (!vendor) return;
+
+            const amount = prompt('Enter monthly amount (without $):');
+            if (!amount || isNaN(parseFloat(amount))) {
+                alert('Please enter a valid amount');
+                return;
+            }
+
+            const frequency = prompt('Frequency:\n1. Monthly\n2. Quarterly\n3. Annual\nEnter number (1-3):', '1');
+            const frequencyMap = {'1': 'monthly', '2': 'quarterly', '3': 'annual'};
+
+            const allCategories = [...categories.expense];
+            const categoryIndex = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, '1');
+            const category = allCategories[parseInt(categoryIndex) - 1] || 'Services';
+
+            const subscription = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                vendor: vendor,
+                amount: parseFloat(amount),
+                frequency: frequencyMap[frequency] || 'monthly',
+                category: category,
+                status: 'active',
+                nextCharge: calculateNextCharge(frequencyMap[frequency] || 'monthly'),
+                autoDetected: false,
+                aliases: [], // Initialize aliases
+                suggestedAliases: [], // Initialize suggested aliases
+                created: new Date().toISOString()
+            };
+
+            subscriptions.push(subscription);
+            updateSubscriptionsView();
+            saveUserData();
+        }
+
+        function calculateNextCharge(frequency) {
+            const now = new Date();
+            switch (frequency) {
+                case 'monthly':
+                    return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()).toISOString().split('T')[0];
+                case 'quarterly':
+                    return new Date(now.getFullYear(), now.getMonth() + 3, now.getDate()).toISOString().split('T')[0];
+                case 'annual':
+                    return new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString().split('T')[0];
+                default:
+                    return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()).toISOString().split('T')[0];
+            }
+        }
+
+        function updateSubscriptionsView() {
+            const subscriptionsList = document.getElementById('subscriptionsList');
+            
+            if (subscriptions.length === 0) {
+                subscriptionsList.innerHTML = '<p>No subscriptions found. Add subscriptions manually or import transactions to auto-detect them.</p>';
+                return;
+            }
+
+            // Calculate totals
+            const monthlyTotal = subscriptions
+                .filter(sub => sub.status === 'active')
+                .reduce((total, sub) => {
+                    switch (sub.frequency) {
+                        case 'monthly': return total + sub.amount;
+                        case 'quarterly': return total + (sub.amount / 3);
+                        case 'annual': return total + (sub.amount / 12);
+                        default: return total + sub.amount;
+                    }
+                }, 0);
+
+            const annualTotal = monthlyTotal * 12;
+
+            subscriptionsList.innerHTML = `
+                <div class="grid" style="margin-bottom: 20px;">
+                    <div class="stat-card">
+                        <div class="stat-value">${formatCurrency(monthlyTotal)}</div>
+                        <div class="stat-label">Monthly Total</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${formatCurrency(annualTotal)}</div>
+                        <div class="stat-label">Annual Total</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>Active Subscriptions</h4>
+                    ${subscriptions.filter(sub => sub.status === 'active').map(sub => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #e2e8f0;">
+                            <div>
+                                <strong>${sub.vendor}</strong>
+                                ${sub.autoDetected ? '<span style="background: #e6fffa; color: #234e52; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 10px;">Auto-detected</span>' : ''}
+                                ${sub.priceChanged ? '<span style="background: #fed7d7; color: #742a2a; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 5px;">Price Changed</span>' : ''}
+                                <br>
+                                <small style="color: #718096;">
+                                    ${formatCurrency(sub.amount)} ${sub.frequency} • ${sub.category}
+                                    ${sub.nextCharge ? ` • Next: ${formatDate(sub.nextCharge)}` : ''}
+                                    ${sub.lastCharge ? ` • Last: ${formatDate(sub.lastCharge)}` : ''}
+                                </small>
+                                ${sub.aliases && sub.aliases.length > 0 ? `
+                                    <div style="margin-top: 5px;">
+                                        ${sub.aliases.map(alias => `<span class="alias-tag">${alias}</span>`).join('')}
+                                    </div>
+                                ` : ''}
+                                ${sub.suggestedAliases && sub.suggestedAliases.length > 0 ? `
+                                    <div style="margin-top: 5px;">
+                                        <span style="font-size: 0.8em; color: #f59e0b;">⚠️ Suggested aliases:</span>
+                                        ${sub.suggestedAliases.map(alias => `<span class="alias-tag suggested-alias">${alias}</span>`).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div>
+                                <button class="btn btn-secondary" onclick="editSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Edit</button>
+                                <button class="btn" onclick="toggleSubscriptionStatus('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Pause</button>
+                                <button class="btn btn-danger" onclick="deleteSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Delete</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                ${subscriptions.filter(sub => sub.status !== 'active').length > 0 ? `
+                    <div class="card">
+                        <h4>Paused/Cancelled Subscriptions</h4>
+                        ${subscriptions.filter(sub => sub.status !== 'active').map(sub => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #e2e8f0; opacity: 0.7;">
+                                <div>
+                                    <strong>${sub.vendor}</strong>
+                                    <span style="background: #f7fafc; color: #4a5568; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 10px;">${sub.status}</span>
+                                    <br>
+                                    <small style="color: #718096;">
+                                        ${formatCurrency(sub.amount)} ${sub.frequency} • ${sub.category}
+                                    </small>
+                                </div>
+                                <div>
+                                    <button class="btn btn-secondary" onclick="editSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Edit</button>
+                                    <button class="btn" onclick="toggleSubscriptionStatus('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Reactivate</button>
+                                    <button class="btn btn-danger" onclick="deleteSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Delete</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        function editSubscription(subscriptionId) {
+            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
+            if (!subscription) return;
+
+            const newVendor = prompt('Edit vendor name:', subscription.vendor);
+            if (newVendor !== null) subscription.vendor = newVendor;
+
+            const newAmount = prompt('Edit amount:', subscription.amount);
+            if (newAmount !== null && !isNaN(parseFloat(newAmount))) {
+                subscription.amount = parseFloat(newAmount);
+            }
+
+            const frequency = prompt('Frequency:\n1. Monthly\n2. Quarterly\n3. Annual\nEnter number (1-3):', 
+                subscription.frequency === 'monthly' ? '1' : 
+                subscription.frequency === 'quarterly' ? '2' : '3');
+            const frequencyMap = {'1': 'monthly', '2': 'quarterly', '3': 'annual'};
+            if (frequencyMap[frequency]) {
+                subscription.frequency = frequencyMap[frequency];
+                subscription.nextCharge = calculateNextCharge(subscription.frequency);
+            }
+
+            const allCategories = [...categories.expense];
+            const currentIndex = allCategories.indexOf(subscription.category) + 1;
+            const categoryIndex = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, currentIndex.toString());
+            const category = allCategories[parseInt(categoryIndex) - 1];
+            if (category) subscription.category = category;
+
+            // Edit aliases
+            const currentAliases = (subscription.aliases || []).join(', ');
+            const newAliases = prompt('Edit aliases (comma-separated):', currentAliases);
+            if (newAliases !== null) {
+                subscription.aliases = newAliases.split(',').map(a => a.trim()).filter(a => a);
+            }
+
+            updateSubscriptionsView();
+            saveUserData();
+        }
+
+        function toggleSubscriptionStatus(subscriptionId) {
+            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
+            if (!subscription) return;
+
+            subscription.status = subscription.status === 'active' ? 'paused' : 'active';
+            if (subscription.status === 'active') {
+                subscription.nextCharge = calculateNextCharge(subscription.frequency);
+            }
+
+            updateSubscriptionsView();
+            saveUserData();
+        }
+
+        function deleteSubscription(subscriptionId) {
+            if (confirm('Delete this subscription?')) {
+                subscriptions = subscriptions.filter(sub => sub.id !== subscriptionId);
+                updateSubscriptionsView();
+                saveUserData();
+            }
+        }
+
+        // Subscription merge management functions
+        function showMergeManager() {
+            const dialog = document.getElementById('mergeDialog');
+            const list = document.getElementById('mergeSubscriptionsList');
+            
+            list.innerHTML = subscriptions.map(sub => `
+                <div class="subscription-item" data-id="${sub.id}" onclick="toggleSubscriptionSelection('${sub.id}')">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <strong>${sub.vendor}</strong>
+                            <span style="color: #718096; margin-left: 10px;">${formatCurrency(sub.amount)}</span>
+                            ${sub.aliases && sub.aliases.length > 0 ? `
+                                <div style="margin-top: 5px;">
+                                    ${sub.aliases.map(alias => `<span class="alias-tag">${alias}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <input type="checkbox" style="margin-left: 10px;">
+                    </div>
+                </div>
+            `).join('');
+            
+            dialog.classList.remove('hidden');
+        }
+
+        function toggleSubscriptionSelection(subscriptionId) {
+            const item = document.querySelector(`[data-id="${subscriptionId}"]`);
+            const checkbox = item.querySelector('input[type="checkbox"]');
+            
+            checkbox.checked = !checkbox.checked;
+            item.classList.toggle('selected', checkbox.checked);
+            
+            updateMergeButton();
+        }
+
+        function updateMergeButton() {
+            const selected = document.querySelectorAll('.subscription-item.selected').length;
+            const mergeBtn = document.getElementById('mergeBtn');
+            
+            mergeBtn.disabled = selected < 2;
+            mergeBtn.textContent = selected < 2 ? 'Select at least 2 subscriptions' : `Merge ${selected} Subscriptions`;
+        }
+
+        function executeMerge() {
+            const selectedItems = document.querySelectorAll('.subscription-item.selected');
+            const selectedIds = Array.from(selectedItems).map(item => item.dataset.id);
+            
+            if (selectedIds.length < 2) {
+                alert('Please select at least 2 subscriptions to merge');
+                return;
+            }
+
+            const selectedSubscriptions = subscriptions.filter(sub => selectedIds.includes(sub.id));
+            const primarySubscription = selectedSubscriptions[0]; // First selected becomes primary
+            const toMerge = selectedSubscriptions.slice(1);
+
+            // Initialize aliases if not present
+            if (!primarySubscription.aliases) primarySubscription.aliases = [];
+
+            // Add new alias if provided
+            const newAlias = document.getElementById('newAliasInput').value.trim();
+            if (newAlias) {
+                if (!primarySubscription.aliases.includes(newAlias)) {
+                    primarySubscription.aliases.push(newAlias);
+                }
+            }
+
+            // Merge aliases from other subscriptions
+            toMerge.forEach(sub => {
+                // Add the vendor name as an alias
+                if (!primarySubscription.aliases.includes(sub.vendor)) {
+                    primarySubscription.aliases.push(sub.vendor);
+                }
+                
+                // Add existing aliases
+                if (sub.aliases) {
+                    sub.aliases.forEach(alias => {
+                        if (!primarySubscription.aliases.includes(alias)) {
+                            primarySubscription.aliases.push(alias);
+                        }
+                    });
+                }
+
+                // Merge suggested aliases
+                if (sub.suggestedAliases) {
+                    if (!primarySubscription.suggestedAliases) primarySubscription.suggestedAliases = [];
+                    sub.suggestedAliases.forEach(alias => {
+                        if (!primarySubscription.suggestedAliases.includes(alias)) {
+                            primarySubscription.suggestedAliases.push(alias);
+                        }
+                    });
+                }
+
+                // Update amount if the merged subscription has a higher amount (likely more recent)
+                if (sub.amount > primarySubscription.amount) {
+                    primarySubscription.amount = sub.amount;
+                }
+
+                // Use the most recent charge date
+                if (sub.lastCharge && (!primarySubscription.lastCharge || sub.lastCharge > primarySubscription.lastCharge)) {
+                    primarySubscription.lastCharge = sub.lastCharge;
+                }
+            });
+
+            // Remove merged subscriptions
+            subscriptions = subscriptions.filter(sub => !selectedIds.slice(1).includes(sub.id));
+
+            updateSubscriptionsView();
+            closeMergeDialog();
+            saveUserData();
+            
+            alert(`Successfully merged ${selectedIds.length} subscriptions into "${primarySubscription.vendor}"`);
+        }
+
+        function closeMergeDialog() {
+            document.getElementById('mergeDialog').classList.add('hidden');
+            document.getElementById('newAliasInput').value = '';
+            
+            // Clear selections
+            document.querySelectorAll('.subscription-item').forEach(item => {
+                item.classList.remove('selected');
+                item.querySelector('input[type="checkbox"]').checked = false;
+            });
+        }
+
+        // Suggested aliases management
+        function reviewSuggestedAliases() {
+            const dialog = document.getElementById('aliasDialog');
+            const list = document.getElementById('suggestedAliasesList');
+            
+            const subscriptionsWithSuggestions = subscriptions.filter(sub => 
+                sub.suggestedAliases && sub.suggestedAliases.length > 0
+            );
+
+            if (subscriptionsWithSuggestions.length === 0) {
+                alert('No suggested aliases found. Import more transactions to see suggestions.');
+                return;
+            }
+
+            list.innerHTML = subscriptionsWithSuggestions.map(sub => `
+                <div class="card" style="margin-bottom: 15px;">
+                    <h4>${sub.vendor}</h4>
+                    <p style="margin-bottom: 10px;">Suggested aliases based on transaction descriptions:</p>
+                    ${sub.suggestedAliases.map(alias => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border: 1px solid #e2e8f0; border-radius: 4px; margin-bottom: 5px;">
+                            <span>${alias}</span>
+                            <div>
+                                <button class="btn" onclick="acceptAlias('${sub.id}', '${alias.replace(/'/g, "\\'")}');reviewSuggestedAliases();" style="padding: 4px 8px; font-size: 0.8em;">Accept</button>
+                                <button class="btn btn-danger" onclick="rejectAlias('${sub.id}', '${alias.replace(/'/g, "\\'")}');reviewSuggestedAliases();" style="padding: 4px 8px; font-size: 0.8em;">Reject</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `).join('');
+            
+            dialog.classList.remove('hidden');
+        }
+
+        function acceptAlias(subscriptionId, alias) {
+            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
+            if (!subscription) return;
+
+            // Move from suggested to accepted aliases
+            if (!subscription.aliases) subscription.aliases = [];
+            if (!subscription.aliases.includes(alias)) {
+                subscription.aliases.push(alias);
+            }
+            
+            subscription.suggestedAliases = subscription.suggestedAliases.filter(a => a !== alias);
+            
+            updateSubscriptionsView();
+            saveUserData();
+        }
+
+        function rejectAlias(subscriptionId, alias) {
+            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
+            if (!subscription) return;
+
+            subscription.suggestedAliases = subscription.suggestedAliases.filter(a => a !== alias);
+            
+            saveUserData();
+        }
+
+        function closeAliasDialog() {
+            document.getElementById('aliasDialog').classList.add('hidden');
         }
 
         // Other functions
@@ -2514,188 +3091,6 @@
             input.click();
         }
 
-        function addSubscription() { 
-            const vendor = prompt('Enter vendor/service name:');
-            if (!vendor) return;
-
-            const amount = prompt('Enter monthly amount (without $):');
-            if (!amount || isNaN(parseFloat(amount))) {
-                alert('Please enter a valid amount');
-                return;
-            }
-
-            const frequency = prompt('Frequency:\n1. Monthly\n2. Quarterly\n3. Annual\nEnter number (1-3):', '1');
-            const frequencyMap = {'1': 'monthly', '2': 'quarterly', '3': 'annual'};
-
-            const allCategories = [...categories.expense];
-            const categoryIndex = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, '1');
-            const category = allCategories[parseInt(categoryIndex) - 1] || 'Services';
-
-            const subscription = {
-                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                vendor: vendor,
-                amount: parseFloat(amount),
-                frequency: frequencyMap[frequency] || 'monthly',
-                category: category,
-                status: 'active',
-                nextCharge: calculateNextCharge(frequencyMap[frequency] || 'monthly'),
-                autoDetected: false,
-                created: new Date().toISOString()
-            };
-
-            subscriptions.push(subscription);
-            updateSubscriptionsView();
-            saveUserData();
-        }
-
-        function calculateNextCharge(frequency) {
-            const now = new Date();
-            switch (frequency) {
-                case 'monthly':
-                    return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()).toISOString().split('T')[0];
-                case 'quarterly':
-                    return new Date(now.getFullYear(), now.getMonth() + 3, now.getDate()).toISOString().split('T')[0];
-                case 'annual':
-                    return new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString().split('T')[0];
-                default:
-                    return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()).toISOString().split('T')[0];
-            }
-        }
-
-        function updateSubscriptionsView() {
-            const subscriptionsList = document.getElementById('subscriptionsList');
-            
-            if (subscriptions.length === 0) {
-                subscriptionsList.innerHTML = '<p>No subscriptions found. Add subscriptions manually or import transactions to auto-detect them.</p>';
-                return;
-            }
-
-            // Calculate totals
-            const monthlyTotal = subscriptions
-                .filter(sub => sub.status === 'active')
-                .reduce((total, sub) => {
-                    switch (sub.frequency) {
-                        case 'monthly': return total + sub.amount;
-                        case 'quarterly': return total + (sub.amount / 3);
-                        case 'annual': return total + (sub.amount / 12);
-                        default: return total + sub.amount;
-                    }
-                }, 0);
-
-            const annualTotal = monthlyTotal * 12;
-
-            subscriptionsList.innerHTML = `
-                <div class="grid" style="margin-bottom: 20px;">
-                    <div class="stat-card">
-                        <div class="stat-value">${formatCurrency(monthlyTotal)}</div>
-                        <div class="stat-label">Monthly Total</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${formatCurrency(annualTotal)}</div>
-                        <div class="stat-label">Annual Total</div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h4>Active Subscriptions</h4>
-                    ${subscriptions.filter(sub => sub.status === 'active').map(sub => `
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #e2e8f0;">
-                            <div>
-                                <strong>${sub.vendor}</strong>
-                                ${sub.autoDetected ? '<span style="background: #e6fffa; color: #234e52; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 10px;">Auto-detected</span>' : ''}
-                                ${sub.priceChanged ? '<span style="background: #fed7d7; color: #742a2a; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 5px;">Price Changed</span>' : ''}
-                                <br>
-                                <small style="color: #718096;">
-                                    ${formatCurrency(sub.amount)} ${sub.frequency} • ${sub.category}
-                                    ${sub.nextCharge ? ` • Next: ${formatDate(sub.nextCharge)}` : ''}
-                                    ${sub.lastCharge ? ` • Last: ${formatDate(sub.lastCharge)}` : ''}
-                                </small>
-                            </div>
-                            <div>
-                                <button class="btn btn-secondary" onclick="editSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Edit</button>
-                                <button class="btn" onclick="toggleSubscriptionStatus('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Pause</button>
-                                <button class="btn btn-danger" onclick="deleteSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Delete</button>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-
-                ${subscriptions.filter(sub => sub.status !== 'active').length > 0 ? `
-                    <div class="card">
-                        <h4>Paused/Cancelled Subscriptions</h4>
-                        ${subscriptions.filter(sub => sub.status !== 'active').map(sub => `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #e2e8f0; opacity: 0.7;">
-                                <div>
-                                    <strong>${sub.vendor}</strong>
-                                    <span style="background: #f7fafc; color: #4a5568; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 10px;">${sub.status}</span>
-                                    <br>
-                                    <small style="color: #718096;">
-                                        ${formatCurrency(sub.amount)} ${sub.frequency} • ${sub.category}
-                                    </small>
-                                </div>
-                                <div>
-                                    <button class="btn btn-secondary" onclick="editSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Edit</button>
-                                    <button class="btn" onclick="toggleSubscriptionStatus('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Reactivate</button>
-                                    <button class="btn btn-danger" onclick="deleteSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Delete</button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                ` : ''}
-            `;
-        }
-
-        function editSubscription(subscriptionId) {
-            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
-            if (!subscription) return;
-
-            const newVendor = prompt('Edit vendor name:', subscription.vendor);
-            if (newVendor !== null) subscription.vendor = newVendor;
-
-            const newAmount = prompt('Edit amount:', subscription.amount);
-            if (newAmount !== null && !isNaN(parseFloat(newAmount))) {
-                subscription.amount = parseFloat(newAmount);
-            }
-
-            const frequency = prompt('Frequency:\n1. Monthly\n2. Quarterly\n3. Annual\nEnter number (1-3):', 
-                subscription.frequency === 'monthly' ? '1' : 
-                subscription.frequency === 'quarterly' ? '2' : '3');
-            const frequencyMap = {'1': 'monthly', '2': 'quarterly', '3': 'annual'};
-            if (frequencyMap[frequency]) {
-                subscription.frequency = frequencyMap[frequency];
-                subscription.nextCharge = calculateNextCharge(subscription.frequency);
-            }
-
-            const allCategories = [...categories.expense];
-            const currentIndex = allCategories.indexOf(subscription.category) + 1;
-            const categoryIndex = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, currentIndex.toString());
-            const category = allCategories[parseInt(categoryIndex) - 1];
-            if (category) subscription.category = category;
-
-            updateSubscriptionsView();
-            saveUserData();
-        }
-
-        function toggleSubscriptionStatus(subscriptionId) {
-            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
-            if (!subscription) return;
-
-            subscription.status = subscription.status === 'active' ? 'paused' : 'active';
-            if (subscription.status === 'active') {
-                subscription.nextCharge = calculateNextCharge(subscription.frequency);
-            }
-
-            updateSubscriptionsView();
-            saveUserData();
-        }
-
-        function deleteSubscription(subscriptionId) {
-            if (confirm('Delete this subscription?')) {
-                subscriptions = subscriptions.filter(sub => sub.id !== subscriptionId);
-                updateSubscriptionsView();
-                saveUserData();
-            }
-        }
         function addRule() { 
             toggleAddRuleForm();
         }
@@ -3045,13 +3440,6 @@
             `;
         }
 
-        // Initialize the dashboard
-        updateDashboard();
-        updateCategoriesView();
-        updateRulesView();
-        updateSubscriptionsView();
-        updateIncomeVarianceAnalysis();
-
         // Projection History Management Functions
         function showAddProjectionForm() {
             const form = document.getElementById('addProjectionForm');
@@ -3336,6 +3724,13 @@
             a.click();
             URL.revokeObjectURL(url);
         }
+
+        // Initialize the dashboard
+        updateDashboard();
+        updateCategoriesView();
+        updateRulesView();
+        updateSubscriptionsView();
+        updateIncomeVarianceAnalysis();
     </script>
 </body>
 </html>
