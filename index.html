@@ -289,6 +289,14 @@
             display: none !important;
         }
 
+        .edit-form {
+            background: #fff8e1;
+            border: 2px solid #ffc107;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
@@ -837,8 +845,20 @@
                 } else {
                     currentUser = null;
                     showSignedOutState();
+                    // Initialize with local data when not signed in
+                    initializeLocalData();
                 }
             });
+        }
+
+        function initializeLocalData() {
+            updateDashboard();
+            updateTransactionsTable();
+            updateCategoriesView();
+            updateRulesView();
+            updateSubscriptionsView();
+            updateIncomeVarianceAnalysis();
+            updateProjectionHistoryTable();
         }
 
         function showSignedInState(user) {
@@ -909,7 +929,10 @@
                 updateDashboard();
                 updateTransactionsTable();
                 updateCategoriesView();
+                updateRulesView();
+                updateSubscriptionsView();
                 updateIncomeVarianceAnalysis();
+                updateProjectionHistoryTable();
                 
             } catch (error) {
                 console.error('Error loading user data:', error);
@@ -1077,6 +1100,10 @@
             
             // Update seasonal factor history
             updateSeasonalFactorHistory();
+
+            // Update the cash flow charts
+            updateIncomeVsExpensesChart(metrics.monthlyIncome);
+            updateRunningBalanceChart(transactions.filter(t => !t.excludeFromTotals));
         }
 
         function updateMonthlyProgressBar(metrics) {
@@ -1680,19 +1707,111 @@
             const incomeContainer = document.getElementById('incomeCategories');
             const expenseContainer = document.getElementById('expenseCategories');
             
-            incomeContainer.innerHTML = categories.income.map(cat => `
+            incomeContainer.innerHTML = categories.income.map((cat, index) => `
                 <div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                    <span>${cat}</span>
-                    <button class="btn btn-danger" onclick="deleteCategory('income', '${cat}')">Delete</button>
+                    <span id="income-cat-${index}">${cat}</span>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn btn-secondary" onclick="editCategory('income', ${index}, '${cat}')" style="padding: 5px 10px;">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteCategory('income', '${cat}')" style="padding: 5px 10px;">Delete</button>
+                    </div>
                 </div>
             `).join('');
             
-            expenseContainer.innerHTML = categories.expense.map(cat => `
+            expenseContainer.innerHTML = categories.expense.map((cat, index) => `
                 <div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                    <span>${cat}</span>
-                    <button class="btn btn-danger" onclick="deleteCategory('expense', '${cat}')">Delete</button>
+                    <span id="expense-cat-${index}">${cat}</span>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn btn-secondary" onclick="editCategory('expense', ${index}, '${cat}')" style="padding: 5px 10px;">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteCategory('expense', '${cat}')" style="padding: 5px 10px;">Delete</button>
+                    </div>
                 </div>
             `).join('');
+        }
+
+        // Edit Category Function
+        function editCategory(type, index, currentName) {
+            const spanId = `${type}-cat-${index}`;
+            const span = document.getElementById(spanId);
+            
+            if (!span) return;
+            
+            // Create edit form
+            const editForm = document.createElement('div');
+            editForm.className = 'edit-form';
+            editForm.innerHTML = `
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="text" id="edit-${type}-${index}" class="form-control" value="${currentName}" style="flex: 1;">
+                    <button class="btn" onclick="saveCategoryEdit('${type}', ${index}, '${currentName}')" style="padding: 8px 12px;">Save</button>
+                    <button class="btn btn-secondary" onclick="cancelCategoryEdit('${type}', ${index})" style="padding: 8px 12px;">Cancel</button>
+                </div>
+            `;
+            
+            // Replace the category row with the edit form
+            const categoryRow = span.closest('div');
+            categoryRow.innerHTML = '';
+            categoryRow.appendChild(editForm);
+            
+            // Focus on the input
+            document.getElementById(`edit-${type}-${index}`).focus();
+        }
+
+        function saveCategoryEdit(type, index, originalName) {
+            const input = document.getElementById(`edit-${type}-${index}`);
+            const newName = input.value.trim();
+            
+            if (!newName) {
+                alert('Category name cannot be empty');
+                return;
+            }
+            
+            if (newName === originalName) {
+                cancelCategoryEdit(type, index);
+                return;
+            }
+            
+            // Check if the new name already exists
+            if (categories[type].includes(newName)) {
+                alert('A category with this name already exists');
+                return;
+            }
+            
+            // Update the category
+            categories[type][index] = newName;
+            
+            // Update any transactions that use this category
+            transactions.forEach(transaction => {
+                if (transaction.category === originalName) {
+                    transaction.category = newName;
+                }
+            });
+            
+            // Update rules that use this category
+            rules.forEach(rule => {
+                if (rule.category === originalName) {
+                    rule.category = newName;
+                }
+            });
+            
+            // Update subscriptions that use this category
+            subscriptions.forEach(subscription => {
+                if (subscription.category === originalName) {
+                    subscription.category = newName;
+                }
+            });
+            
+            // Refresh the display
+            updateCategoriesView();
+            updateTransactionsTable();
+            updateRulesView();
+            updateSubscriptionsView();
+            saveUserData();
+            
+            alert(`Category renamed from "${originalName}" to "${newName}"`);
+        }
+
+        function cancelCategoryEdit(type, index) {
+            // Simply refresh the categories view to restore the original display
+            updateCategoriesView();
         }
 
         // Utility Functions
@@ -2380,6 +2499,8 @@
                             updateDashboard();
                             updateTransactionsTable();
                             updateCategoriesView();
+                            updateRulesView();
+                            updateSubscriptionsView();
                             saveUserData();
                             
                             alert('Data imported successfully!');
@@ -2797,14 +2918,37 @@
             }
         }
 
-        function updateIncomeVsExpensesChart(monthlyData) {
+        function updateIncomeVsExpensesChart(monthlyIncome) {
             const container = document.getElementById('incomeVsExpensesChart');
             if (!container) return;
 
-            const sortedMonths = Object.keys(monthlyData).sort().slice(-3); // Last 3 months
+            // Create monthly data object with both income and expenses
+            const monthlyData = {};
+            
+            // Process all transactions (not just income)
+            const activeTransactions = transactions.filter(t => !t.excludeFromTotals);
+            
+            activeTransactions.forEach(t => {
+                const date = new Date(t.date);
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                
+                if (!monthlyData[monthKey]) {
+                    monthlyData[monthKey] = { income: 0, expenses: 0, net: 0 };
+                }
+                
+                if (t.amount > 0) {
+                    monthlyData[monthKey].income += t.amount;
+                } else {
+                    monthlyData[monthKey].expenses += Math.abs(t.amount);
+                }
+                
+                monthlyData[monthKey].net = monthlyData[monthKey].income - monthlyData[monthKey].expenses;
+            });
+
+            const sortedMonths = Object.keys(monthlyData).sort().slice(-6); // Last 6 months
             
             if (sortedMonths.length === 0) {
-                container.innerHTML = '<p>No data available yet.</p>';
+                container.innerHTML = '<p>No transaction data available yet.</p>';
                 return;
             }
 
