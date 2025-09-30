@@ -1201,74 +1201,77 @@
         }
 
         function detectSubscription(transaction, detectedSubscriptions) {
-            const desc = transaction.description.toLowerCase();
-            const amount = Math.abs(transaction.amount);
+    const desc = transaction.description.toLowerCase();
+    const amount = Math.abs(transaction.amount);
+    const transactionDate = transaction.date;
+    
+    // Common subscription keywords
+    const subscriptionKeywords = [
+        'netflix', 'spotify', 'amazon prime', 'hulu', 'disney', 'apple music',
+        'adobe', 'microsoft', 'google', 'dropbox', 'office 365',
+        'gym', 'fitness', 'insurance', 'phone', 'internet', 'cable',
+        'subscription', 'monthly', 'annual', 'recurring'
+    ];
+
+    const isLikelySubscription = subscriptionKeywords.some(keyword => desc.includes(keyword)) ||
+                              desc.includes('auto pay') || 
+                              desc.includes('recurring') ||
+                              desc.includes('monthly');
+
+    if (isLikelySubscription) {
+        const existingSubscription = findSimilarSubscription(transaction.description, amount);
+        
+        if (existingSubscription) {
+            // Update existing subscription with actual charge date
+            if (Math.abs(existingSubscription.amount - amount) > 0.01) {
+                existingSubscription.priceChanged = true;
+                existingSubscription.newAmount = amount;
+            }
+            existingSubscription.lastCharge = transactionDate;
+            existingSubscription.nextCharge = calculateNextChargeFromDate(transactionDate, existingSubscription.frequency);
             
-            // Common subscription keywords
-            const subscriptionKeywords = [
-                'netflix', 'spotify', 'amazon prime', 'hulu', 'disney', 'apple music',
-                'adobe', 'microsoft', 'google', 'dropbox', 'office 365',
-                'gym', 'fitness', 'insurance', 'phone', 'internet', 'cable',
-                'subscription', 'monthly', 'annual', 'recurring'
-            ];
-
-            const isLikelySubscription = subscriptionKeywords.some(keyword => desc.includes(keyword)) ||
-                                      desc.includes('auto pay') || 
-                                      desc.includes('recurring') ||
-                                      desc.includes('monthly');
-
-            if (isLikelySubscription) {
-                // First, check if this matches an existing subscription (with fuzzy matching)
-                const existingSubscription = findSimilarSubscription(transaction.description, amount);
-                
-                if (existingSubscription) {
-                    // Update existing subscription instead of creating new detection
-                    if (Math.abs(existingSubscription.amount - amount) > 0.01) {
-                        existingSubscription.priceChanged = true;
-                        existingSubscription.newAmount = amount;
-                    }
-                    existingSubscription.lastCharge = transaction.date;
-                    
-                    // Add the transaction description as a potential new alias if it's different
-                    const normalized = normalizeSubscriptionName(transaction.description);
-                    const existingNormalized = normalizeSubscriptionName(existingSubscription.vendor);
-                    if (normalized !== existingNormalized) {
-                        if (!existingSubscription.suggestedAliases) {
-                            existingSubscription.suggestedAliases = [];
-                        }
-                        if (!existingSubscription.suggestedAliases.includes(transaction.description)) {
-                            existingSubscription.suggestedAliases.push(transaction.description);
-                        }
-                    }
-                    return; // Don't add to detected subscriptions
+            // Add the transaction description as a potential new alias if it's different
+            const normalized = normalizeSubscriptionName(transaction.description);
+            const existingNormalized = normalizeSubscriptionName(existingSubscription.vendor);
+            if (normalized !== existingNormalized) {
+                if (!existingSubscription.suggestedAliases) {
+                    existingSubscription.suggestedAliases = [];
                 }
-                
-                // Check if we already detected this vendor in this import session
-                const existingDetection = detectedSubscriptions.find(sub => {
-                    const subNormalized = normalizeSubscriptionName(sub.vendor);
-                    const transNormalized = normalizeSubscriptionName(transaction.description);
-                    return subNormalized === transNormalized;
-                });
-
-                if (existingDetection) {
-                    existingDetection.transactions.push(transaction);
-                    // Update amount if it's different (price change)
-                    if (Math.abs(existingDetection.amount - amount) > 0.01) {
-                        existingDetection.priceChanged = true;
-                        existingDetection.newAmount = amount;
-                    }
-                } else {
-                    detectedSubscriptions.push({
-                        vendor: transaction.description,
-                        amount: amount,
-                        category: transaction.category,
-                        lastDate: transaction.date,
-                        transactions: [transaction],
-                        priceChanged: false
-                    });
+                if (!existingSubscription.suggestedAliases.includes(transaction.description)) {
+                    existingSubscription.suggestedAliases.push(transaction.description);
                 }
             }
+            return;
         }
+        
+        const existingDetection = detectedSubscriptions.find(sub => {
+            const subNormalized = normalizeSubscriptionName(sub.vendor);
+            const transNormalized = normalizeSubscriptionName(transaction.description);
+            return subNormalized === transNormalized;
+        });
+
+        if (existingDetection) {
+            existingDetection.transactions.push(transaction);
+            // Use the most recent date
+            if (transaction.date > existingDetection.lastDate) {
+                existingDetection.lastDate = transaction.date;
+            }
+            if (Math.abs(existingDetection.amount - amount) > 0.01) {
+                existingDetection.priceChanged = true;
+                existingDetection.newAmount = amount;
+            }
+        } else {
+            detectedSubscriptions.push({
+                vendor: transaction.description,
+                amount: amount,
+                category: transaction.category,
+                lastDate: transactionDate,
+                transactions: [transaction],
+                priceChanged: false
+            });
+        }
+    }
+}
 
         // Seasonal Factor Management
         function getCurrentMonthKey() {
@@ -1970,11 +1973,12 @@
             const allCategories = [...new Set(transactions.map(t => t.category).filter(c => c))];
             const currentValue = categoryFilter.value;
             
-            categoryFilter.innerHTML = `
-                <option value="">All Categories</option>
-                <option value="uncategorized">Uncategorized Only</option>
-                ${allCategories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
-            `;
+            const filteredCategories = allCategories.filter(cat => cat !== 'Uncategorized');
+categoryFilter.innerHTML = `
+    <option value="">All Categories</option>
+    <option value="Uncategorized">Uncategorized Only</option>
+    ${filteredCategories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+`;
             
             categoryFilter.value = currentValue;
         }
@@ -2522,46 +2526,47 @@
         }
 
         function processDetectedSubscriptions(detectedSubscriptions) {
-            detectedSubscriptions.forEach(detected => {
-                // Check if subscription already exists
-                const existingSubscription = subscriptions.find(sub => 
-                    sub.vendor.toLowerCase() === detected.vendor.toLowerCase()
-                );
+    detectedSubscriptions.forEach(detected => {
+        // Check if subscription already exists
+        const existingSubscription = subscriptions.find(sub => 
+            sub.vendor.toLowerCase() === detected.vendor.toLowerCase()
+        );
 
-                if (!existingSubscription) {
-                    // Calculate frequency based on transaction dates
-                    let frequency = 'monthly'; // default
-                    if (detected.transactions.length > 1) {
-                        const dates = detected.transactions.map(t => new Date(t.date)).sort();
-                        const daysBetween = (dates[1] - dates[0]) / (1000 * 60 * 60 * 24);
-                        if (daysBetween > 300) frequency = 'annual';
-                        else if (daysBetween > 80) frequency = 'quarterly';
-                        else frequency = 'monthly';
-                    }
+        if (!existingSubscription) {
+            // Calculate frequency based on transaction dates
+            let frequency = 'monthly'; // default
+            if (detected.transactions.length > 1) {
+                const dates = detected.transactions.map(t => new Date(t.date)).sort();
+                const daysBetween = (dates[1] - dates[0]) / (1000 * 60 * 60 * 24);
+                if (daysBetween > 300) frequency = 'annual';
+                else if (daysBetween > 80) frequency = 'quarterly';
+                else frequency = 'monthly';
+            }
 
-                    subscriptions.push({
-                        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                        vendor: detected.vendor,
-                        amount: detected.amount,
-                        frequency: frequency,
-                        category: detected.category,
-                        lastCharge: detected.lastDate,
-                        status: 'active',
-                        autoDetected: true,
-                        priceChanged: detected.priceChanged,
-                        newAmount: detected.newAmount || detected.amount,
-                        aliases: [], // Initialize aliases array
-                        suggestedAliases: [], // Initialize suggested aliases
-                        detectedDate: new Date().toISOString()
-                    });
-                } else if (detected.priceChanged) {
-                    // Update existing subscription with new amount
-                    existingSubscription.amount = detected.newAmount;
-                    existingSubscription.priceChanged = true;
-                    existingSubscription.lastCharge = detected.lastDate;
-                }
+            subscriptions.push({
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                vendor: detected.vendor,
+                amount: detected.amount,
+                frequency: frequency,
+                category: detected.category,
+                lastCharge: detected.lastDate,
+                nextCharge: calculateNextChargeFromDate(detected.lastDate, frequency),
+                status: 'active',
+                autoDetected: true,
+                priceChanged: detected.priceChanged,
+                newAmount: detected.newAmount || detected.amount,
+                aliases: [],
+                suggestedAliases: [],
+                detectedDate: new Date().toISOString()
             });
+        } else if (detected.priceChanged) {
+            // Update existing subscription with new amount
+            existingSubscription.amount = detected.newAmount;
+            existingSubscription.priceChanged = true;
+            existingSubscription.lastCharge = detected.lastDate;
         }
+    });
+}
 
         // Subscription management functions with inline forms
         function toggleAddSubscriptionForm() {
@@ -2746,6 +2751,20 @@
             }
         }
 
+        function calculateNextChargeFromDate(lastChargeDate, frequency) {
+    const lastDate = new Date(lastChargeDate);
+    switch (frequency) {
+        case 'monthly':
+            return new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, lastDate.getDate()).toISOString().split('T')[0];
+        case 'quarterly':
+            return new Date(lastDate.getFullYear(), lastDate.getMonth() + 3, lastDate.getDate()).toISOString().split('T')[0];
+        case 'annual':
+            return new Date(lastDate.getFullYear() + 1, lastDate.getMonth(), lastDate.getDate()).toISOString().split('T')[0];
+        default:
+            return new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, lastDate.getDate()).toISOString().split('T')[0];
+    }
+}
+
         function updateSubscriptionsView() {
             const subscriptionsList = document.getElementById('subscriptionsList');
             
@@ -2754,31 +2773,91 @@
                 return;
             }
 
-            // Calculate totals
-            const monthlyTotal = subscriptions
-                .filter(sub => sub.status === 'active')
-                .reduce((total, sub) => {
-                    switch (sub.frequency) {
-                        case 'monthly': return total + sub.amount;
-                        case 'quarterly': return total + (sub.amount / 3);
-                        case 'annual': return total + (sub.amount / 12);
-                        default: return total + sub.amount;
-                    }
-                }, 0);
+            // Calculate totals and get next 30 days
+const now = new Date();
+const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-            const annualTotal = monthlyTotal * 12;
+const monthlyTotal = subscriptions
+    .filter(sub => sub.status === 'active')
+    .reduce((total, sub) => {
+        switch (sub.frequency) {
+            case 'monthly': return total + sub.amount;
+            case 'quarterly': return total + (sub.amount / 3);
+            case 'annual': return total + (sub.amount / 12);
+            default: return total + sub.amount;
+        }
+    }, 0);
 
-            subscriptionsList.innerHTML = `
-                <div class="grid" style="margin-bottom: 20px;">
-                    <div class="stat-card">
-                        <div class="stat-value">${formatCurrency(monthlyTotal)}</div>
-                        <div class="stat-label">Monthly Total</div>
+const annualTotal = monthlyTotal * 12;
+
+// Calculate upcoming charges in next 30 days
+const upcomingCharges = subscriptions
+    .filter(sub => {
+        if (sub.status !== 'active' || !sub.nextCharge) return false;
+        const nextChargeDate = new Date(sub.nextCharge);
+        return nextChargeDate >= now && nextChargeDate <= thirtyDaysFromNow;
+    })
+    .sort((a, b) => new Date(a.nextCharge) - new Date(b.nextCharge));
+
+const upcomingTotal = upcomingCharges.reduce((total, sub) => total + sub.amount, 0);
+
+// Get current month income
+const metrics = calculateIncomeMetrics();
+const currentIncome = metrics.currentMonthIncome;
+const incomeNeeded = upcomingTotal;
+const incomeProgress = incomeNeeded > 0 ? (currentIncome / incomeNeeded) * 100 : 100;
+
+subscriptionsList.innerHTML = `
+    <div class="grid" style="margin-bottom: 20px;">
+        <div class="stat-card">
+            <div class="stat-value">${formatCurrency(monthlyTotal)}</div>
+            <div class="stat-label">Monthly Total</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${formatCurrency(annualTotal)}</div>
+            <div class="stat-label">Annual Total</div>
+        </div>
+        <div class="stat-card" style="background: ${incomeProgress >= 100 ? 'linear-gradient(135deg, #059669 0%, #047857 100%)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'};">
+            <div class="stat-value">${formatCurrency(upcomingTotal)}</div>
+            <div class="stat-label">Due in Next 30 Days</div>
+        </div>
+    </div>
+
+    ${upcomingCharges.length > 0 ? `
+        <div class="card" style="margin-bottom: 20px; ${incomeProgress >= 100 ? 'background: #f0fff4; border: 2px solid #059669;' : 'background: #fef3cd; border: 2px solid #f59e0b;'}">
+            <h4 style="margin-bottom: 15px;">📅 Upcoming Charges (Next 30 Days)</h4>
+            
+            <div style="margin-bottom: 15px; padding: 15px; background: white; border-radius: 6px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span style="font-weight: bold;">Income Progress:</span>
+                    <span style="font-weight: bold; color: ${incomeProgress >= 100 ? '#059669' : '#f59e0b'};">
+                        ${formatCurrency(currentIncome)} / ${formatCurrency(incomeNeeded)} (${incomeProgress.toFixed(0)}%)
+                    </span>
+                </div>
+                <div style="width: 100%; height: 20px; background: #e2e8f0; border-radius: 10px; overflow: hidden;">
+                    <div style="width: ${Math.min(incomeProgress, 100)}%; height: 100%; background: ${incomeProgress >= 100 ? '#059669' : '#f59e0b'}; transition: width 0.3s ease;"></div>
+                </div>
+                ${incomeProgress >= 100 ? 
+                    '<div style="margin-top: 10px; text-align: center; font-weight: bold; color: #059669;">🎉 Congratulations! You have enough income to cover upcoming subscriptions!</div>' :
+                    `<div style="margin-top: 10px; text-align: center; font-weight: bold; color: #f59e0b;">⚠️ Need ${formatCurrency(incomeNeeded - currentIncome)} more to cover upcoming subscriptions</div>`
+                }
+            </div>
+            
+            ${upcomingCharges.map(sub => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #e2e8f0; background: white; margin-bottom: 5px; border-radius: 4px;">
+                    <div>
+                        <strong>${sub.vendor}</strong>
+                        <div style="font-size: 0.8em; color: #718096;">
+                            Due: ${formatDate(sub.nextCharge)}
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${formatCurrency(annualTotal)}</div>
-                        <div class="stat-label">Annual Total</div>
+                    <div style="font-weight: bold; color: #e53e3e;">
+                        ${formatCurrency(sub.amount)}
                     </div>
                 </div>
+            `).join('')}
+        </div>
+    ` : ''}
 
                 <div class="card">
                     <h4>Active Subscriptions</h4>
