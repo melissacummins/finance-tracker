@@ -629,11 +629,91 @@
         <!-- Subscriptions Tab -->
         <div id="subscriptions" class="tab-content">
             <div class="card">
-                <h3>🔄 Subscription Management with Smart Matching</h3>
+                <h3>📄 Subscription Management with Smart Matching</h3>
                 <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-                    <button class="btn" onclick="addSubscription()">Add Subscription</button>
+                    <button class="btn" onclick="toggleAddSubscriptionForm()">Add Subscription</button>
                     <button class="btn btn-secondary" onclick="showMergeManager()">Merge Subscriptions</button>
                     <button class="btn btn-warning" onclick="reviewSuggestedAliases()">Review Suggested Aliases</button>
+                </div>
+
+                <!-- Add Subscription Form -->
+                <div id="addSubscriptionForm" class="card hidden" style="background: #f0fff4; border: 2px solid #059669; margin-bottom: 20px;">
+                    <h4>Add New Subscription</h4>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label>Vendor/Service Name *</label>
+                            <input type="text" id="newSubVendor" class="form-control" placeholder="e.g., Netflix, Spotify">
+                        </div>
+                        <div class="form-group">
+                            <label>Amount *</label>
+                            <input type="number" id="newSubAmount" class="form-control" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label>Frequency *</label>
+                            <select id="newSubFrequency" class="form-control">
+                                <option value="monthly">Monthly</option>
+                                <option value="quarterly">Quarterly</option>
+                                <option value="annual">Annual</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Category *</label>
+                            <select id="newSubCategory" class="form-control">
+                                <!-- Will be populated with expense categories -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Aliases (optional, comma-separated)</label>
+                        <input type="text" id="newSubAliases" class="form-control" placeholder="e.g., NFLX, Netflix.com, Netflix Inc">
+                        <small style="color: #718096;">Alternative names that might appear on your statement</small>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn" onclick="saveNewSubscription()">Save Subscription</button>
+                        <button class="btn btn-secondary" onclick="cancelAddSubscription()">Cancel</button>
+                    </div>
+                </div>
+
+                <!-- Edit Subscription Form -->
+                <div id="editSubscriptionForm" class="card hidden" style="background: #fff8e1; border: 2px solid #ffc107; margin-bottom: 20px;">
+                    <h4>Edit Subscription</h4>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label>Vendor/Service Name *</label>
+                            <input type="text" id="editSubVendor" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Amount *</label>
+                            <input type="number" id="editSubAmount" class="form-control" step="0.01">
+                        </div>
+                    </div>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label>Frequency *</label>
+                            <select id="editSubFrequency" class="form-control">
+                                <option value="monthly">Monthly</option>
+                                <option value="quarterly">Quarterly</option>
+                                <option value="annual">Annual</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Category *</label>
+                            <select id="editSubCategory" class="form-control">
+                                <!-- Will be populated with expense categories -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Aliases (comma-separated)</label>
+                        <input type="text" id="editSubAliases" class="form-control">
+                        <small style="color: #718096;">Alternative names that might appear on your statement</small>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn" onclick="saveSubscriptionEdit()">Save Changes</button>
+                        <button class="btn btn-secondary" onclick="cancelEditSubscription()">Cancel</button>
+                    </div>
                 </div>
                 
                 <div id="subscriptionsList"></div>
@@ -882,7 +962,7 @@
     <!-- Alias Review Dialog -->
     <div id="aliasDialog" class="merge-dialog hidden">
         <div class="merge-dialog-content">
-            <h3>📝 Review Suggested Aliases</h3>
+            <h3>🔍 Review Suggested Aliases</h3>
             <p>These aliases were automatically suggested based on similar transaction descriptions:</p>
             
             <div id="suggestedAliasesList"></div>
@@ -2391,7 +2471,7 @@
                 message += `⚠️ Skipped: ${skippedCount} transactions (duplicates or errors)\n`;
             }
             if (detectedSubscriptions.length > 0) {
-                message += `🔄 Found: ${detectedSubscriptions.length} potential subscriptions\n`;
+                message += `📄 Found: ${detectedSubscriptions.length} potential subscriptions\n`;
             }
             if (importErrors.length > 0 && importErrors.length <= 5) {
                 message += `\nErrors:\n${importErrors.slice(0, 5).join('\n')}`;
@@ -2483,41 +2563,173 @@
             });
         }
 
-        // Subscription management functions (enhanced)
-        function addSubscription() { 
-            const vendor = prompt('Enter vendor/service name:');
-            if (!vendor) return;
+        // Subscription management functions with inline forms
+        function toggleAddSubscriptionForm() {
+            const form = document.getElementById('addSubscriptionForm');
+            const editForm = document.getElementById('editSubscriptionForm');
+            
+            // Hide edit form if open
+            if (!editForm.classList.contains('hidden')) {
+                editForm.classList.add('hidden');
+            }
+            
+            if (form.classList.contains('hidden')) {
+                // Show form and populate categories
+                form.classList.remove('hidden');
+                populateSubscriptionCategories('newSubCategory');
+                
+                // Clear form
+                document.getElementById('newSubVendor').value = '';
+                document.getElementById('newSubAmount').value = '';
+                document.getElementById('newSubFrequency').value = 'monthly';
+                document.getElementById('newSubAliases').value = '';
+                
+                // Scroll to form
+                form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                form.classList.add('hidden');
+            }
+        }
 
-            const amount = prompt('Enter monthly amount (without $):');
-            if (!amount || isNaN(parseFloat(amount))) {
-                alert('Please enter a valid amount');
+        function populateSubscriptionCategories(selectId) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            
+            select.innerHTML = categories.expense.map(cat => 
+                `<option value="${cat}">${cat}</option>`
+            ).join('');
+        }
+
+        function saveNewSubscription() {
+            const vendor = document.getElementById('newSubVendor').value.trim();
+            const amount = parseFloat(document.getElementById('newSubAmount').value);
+            const frequency = document.getElementById('newSubFrequency').value;
+            const category = document.getElementById('newSubCategory').value;
+            const aliasesStr = document.getElementById('newSubAliases').value.trim();
+            
+            // Validation
+            if (!vendor) {
+                alert('Please enter a vendor/service name');
+                document.getElementById('newSubVendor').focus();
                 return;
             }
-
-            const frequency = prompt('Frequency:\n1. Monthly\n2. Quarterly\n3. Annual\nEnter number (1-3):', '1');
-            const frequencyMap = {'1': 'monthly', '2': 'quarterly', '3': 'annual'};
-
-            const allCategories = [...categories.expense];
-            const categoryIndex = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, '1');
-            const category = allCategories[parseInt(categoryIndex) - 1] || 'Services';
+            
+            if (isNaN(amount) || amount <= 0) {
+                alert('Please enter a valid amount');
+                document.getElementById('newSubAmount').focus();
+                return;
+            }
+            
+            // Parse aliases
+            const aliases = aliasesStr ? aliasesStr.split(',').map(a => a.trim()).filter(a => a) : [];
 
             const subscription = {
                 id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
                 vendor: vendor,
-                amount: parseFloat(amount),
-                frequency: frequencyMap[frequency] || 'monthly',
+                amount: amount,
+                frequency: frequency,
                 category: category,
                 status: 'active',
-                nextCharge: calculateNextCharge(frequencyMap[frequency] || 'monthly'),
+                nextCharge: calculateNextCharge(frequency),
                 autoDetected: false,
-                aliases: [], // Initialize aliases
-                suggestedAliases: [], // Initialize suggested aliases
+                aliases: aliases,
+                suggestedAliases: [],
                 created: new Date().toISOString()
             };
 
             subscriptions.push(subscription);
             updateSubscriptionsView();
             saveUserData();
+            
+            // Hide form
+            document.getElementById('addSubscriptionForm').classList.add('hidden');
+            
+            alert(`Subscription "${vendor}" added successfully!`);
+        }
+
+        function cancelAddSubscription() {
+            document.getElementById('addSubscriptionForm').classList.add('hidden');
+        }
+
+        function editSubscription(subscriptionId) {
+            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
+            if (!subscription) return;
+
+            // Hide add form if open
+            const addForm = document.getElementById('addSubscriptionForm');
+            if (!addForm.classList.contains('hidden')) {
+                addForm.classList.add('hidden');
+            }
+
+            // Show and populate edit form
+            const form = document.getElementById('editSubscriptionForm');
+            form.classList.remove('hidden');
+            
+            populateSubscriptionCategories('editSubCategory');
+            
+            document.getElementById('editSubVendor').value = subscription.vendor;
+            document.getElementById('editSubAmount').value = subscription.amount;
+            document.getElementById('editSubFrequency').value = subscription.frequency;
+            document.getElementById('editSubCategory').value = subscription.category;
+            document.getElementById('editSubAliases').value = (subscription.aliases || []).join(', ');
+            
+            // Store ID for saving
+            form.setAttribute('data-editing-id', subscriptionId);
+            
+            // Scroll to form
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function saveSubscriptionEdit() {
+            const form = document.getElementById('editSubscriptionForm');
+            const subscriptionId = form.getAttribute('data-editing-id');
+            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
+            
+            if (!subscription) {
+                alert('Subscription not found');
+                return;
+            }
+
+            const vendor = document.getElementById('editSubVendor').value.trim();
+            const amount = parseFloat(document.getElementById('editSubAmount').value);
+            const frequency = document.getElementById('editSubFrequency').value;
+            const category = document.getElementById('editSubCategory').value;
+            const aliasesStr = document.getElementById('editSubAliases').value.trim();
+            
+            // Validation
+            if (!vendor) {
+                alert('Please enter a vendor/service name');
+                return;
+            }
+            
+            if (isNaN(amount) || amount <= 0) {
+                alert('Please enter a valid amount');
+                return;
+            }
+            
+            // Parse aliases
+            const aliases = aliasesStr ? aliasesStr.split(',').map(a => a.trim()).filter(a => a) : [];
+
+            // Update subscription
+            subscription.vendor = vendor;
+            subscription.amount = amount;
+            subscription.frequency = frequency;
+            subscription.category = category;
+            subscription.aliases = aliases;
+            subscription.nextCharge = calculateNextCharge(frequency);
+            subscription.updated = new Date().toISOString();
+
+            updateSubscriptionsView();
+            saveUserData();
+            cancelEditSubscription();
+            
+            alert(`Subscription "${vendor}" updated successfully!`);
+        }
+
+        function cancelEditSubscription() {
+            const form = document.getElementById('editSubscriptionForm');
+            form.classList.add('hidden');
+            form.removeAttribute('data-editing-id');
         }
 
         function calculateNextCharge(frequency) {
@@ -2628,44 +2840,6 @@
             `;
         }
 
-        function editSubscription(subscriptionId) {
-            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
-            if (!subscription) return;
-
-            const newVendor = prompt('Edit vendor name:', subscription.vendor);
-            if (newVendor !== null) subscription.vendor = newVendor;
-
-            const newAmount = prompt('Edit amount:', subscription.amount);
-            if (newAmount !== null && !isNaN(parseFloat(newAmount))) {
-                subscription.amount = parseFloat(newAmount);
-            }
-
-            const frequency = prompt('Frequency:\n1. Monthly\n2. Quarterly\n3. Annual\nEnter number (1-3):', 
-                subscription.frequency === 'monthly' ? '1' : 
-                subscription.frequency === 'quarterly' ? '2' : '3');
-            const frequencyMap = {'1': 'monthly', '2': 'quarterly', '3': 'annual'};
-            if (frequencyMap[frequency]) {
-                subscription.frequency = frequencyMap[frequency];
-                subscription.nextCharge = calculateNextCharge(subscription.frequency);
-            }
-
-            const allCategories = [...categories.expense];
-            const currentIndex = allCategories.indexOf(subscription.category) + 1;
-            const categoryIndex = prompt(`Select category:\n${allCategories.map((cat, i) => `${i + 1}. ${cat}`).join('\n')}\nEnter number:`, currentIndex.toString());
-            const category = allCategories[parseInt(categoryIndex) - 1];
-            if (category) subscription.category = category;
-
-            // Edit aliases
-            const currentAliases = (subscription.aliases || []).join(', ');
-            const newAliases = prompt('Edit aliases (comma-separated):', currentAliases);
-            if (newAliases !== null) {
-                subscription.aliases = newAliases.split(',').map(a => a.trim()).filter(a => a);
-            }
-
-            updateSubscriptionsView();
-            saveUserData();
-        }
-
         function toggleSubscriptionStatus(subscriptionId) {
             const subscription = subscriptions.find(sub => sub.id === subscriptionId);
             if (!subscription) return;
@@ -2680,7 +2854,10 @@
         }
 
         function deleteSubscription(subscriptionId) {
-            if (confirm('Delete this subscription?')) {
+            const subscription = subscriptions.find(sub => sub.id === subscriptionId);
+            if (!subscription) return;
+            
+            if (confirm(`Delete subscription "${subscription.vendor}"?`)) {
                 subscriptions = subscriptions.filter(sub => sub.id !== subscriptionId);
                 updateSubscriptionsView();
                 saveUserData();
