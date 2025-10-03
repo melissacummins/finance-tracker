@@ -314,7 +314,38 @@
             font-size: 0.8em;
             margin: 2px;
         }
+.duplicate-panel {
+            background: #fffbeb;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
 
+        .duplicate-group {
+            background: white;
+            border: 1px solid #fbbf24;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .duplicate-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #fef3c7;
+        }
+
+        .duplicate-item:last-child {
+            border-bottom: none;
+        }
+
+        .duplicate-item:hover {
+            background: #fef3c7;
+        }
+        
         .suggested-alias {
             background: #fef3cd;
             color: #92400e;
@@ -1848,62 +1879,165 @@ function sortTransactions(column) {
             const transaction = transactions.find(t => t.id === transactionId);
             if (!transaction) return;
 
-            const options = [
-                "Keep this transaction (mark as legitimate)",
-                "Delete this transaction (it's a duplicate)",
-                "Keep all in this group (legitimate multiple charges)",
-                "Review all duplicates in group"
-            ];
+            // Show inline resolution options instead of popup
+            showDuplicateResolutionPanel(transactionId);
+        }
 
-            const choice = prompt(`Resolve duplicate for: ${transaction.description}\n\n` +
-                `1. ${options[0]}\n2. ${options[1]}\n3. ${options[2]}\n4. ${options[3]}\n\n` +
-                "Enter number (1-4):", "1");
+        function showDuplicateResolutionPanel(transactionId) {
+            const transaction = transactions.find(t => t.id === transactionId);
+            if (!transaction) return;
 
-            const choiceNum = parseInt(choice);
-            
-            switch (choiceNum) {
-                case 1:
-                    // Keep this one, mark as legitimate
-                    transaction.isDuplicateFlag = false;
-                    transaction.excludeFromTotals = false;
-                    delete transaction.duplicateGroup;
-                    break;
-                    
-                case 2:
-                    // Delete this transaction
-                    transactions = transactions.filter(t => t.id !== transactionId);
-                    break;
-                    
-                case 3:
-                    // Keep all in group
-                    const groupId = transaction.duplicateGroup;
-                    transactions.forEach(t => {
-                        if (t.duplicateGroup === groupId) {
-                            t.isDuplicateFlag = false;
-                            t.excludeFromTotals = false;
-                            delete t.duplicateGroup;
-                        }
-                    });
-                    break;
-                    
-                case 4:
-                    // Show duplicate manager
-                    showDuplicateManager();
-                    return;
-                    
-                default:
-                    return;
+            const groupId = transaction.duplicateGroup;
+            const groupMembers = transactions.filter(t => t.duplicateGroup === groupId);
+
+            // Create or show the duplicate panel
+            let panel = document.getElementById('duplicateResolutionPanel');
+            if (!panel) {
+                panel = document.createElement('div');
+                panel.id = 'duplicateResolutionPanel';
+                panel.className = 'duplicate-panel';
+                
+                // Insert at the top of the transactions card
+                const transactionsCard = document.querySelector('#transactions .card');
+                transactionsCard.insertBefore(panel, transactionsCard.firstChild);
+            }
+
+            panel.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h4 style="margin: 0; color: #92400e;">⚠️ Resolve Duplicate Transactions</h4>
+                    <button class="btn btn-secondary" onclick="closeDuplicatePanel()" style="padding: 5px 10px;">Close</button>
+                </div>
+                
+                <p style="margin-bottom: 15px;">These transactions appear to be duplicates. Choose how to handle them:</p>
+                
+                <div class="duplicate-group">
+                    <div style="font-weight: bold; margin-bottom: 10px; color: #92400e;">
+                        Group: ${groupMembers[0].description}
+                    </div>
+                    ${groupMembers.map(t => `
+                        <div class="duplicate-item" style="${t.id === transactionId ? 'background: #fef3c7;' : ''}">
+                            <div style="flex: 1;">
+                                <div style="font-weight: bold;">${formatDate(t.date)}</div>
+                                <div style="font-size: 0.9em; color: #718096;">${t.description}</div>
+                                <div style="font-weight: bold; color: ${t.amount > 0 ? '#059669' : '#dc2626'}; margin-top: 5px;">
+                                    ${formatCurrency(t.amount)}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn" onclick="keepThisTransaction('${t.id}')" style="padding: 5px 10px; background: #059669;">
+                                    Keep This
+                                </button>
+                                <button class="btn btn-danger" onclick="deleteThisTransaction('${t.id}')" style="padding: 5px 10px;">
+                                    Delete This
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn" onclick="keepAllInGroup('${groupId}')" style="background: #059669;">
+                        Keep All (Legitimate Multiple Charges)
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteAllInGroup('${groupId}')">
+                        Delete All
+                    </button>
+                </div>
+            `;
+
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function closeDuplicatePanel() {
+            const panel = document.getElementById('duplicateResolutionPanel');
+            if (panel) {
+                panel.remove();
+            }
+        }
+
+        function keepThisTransaction(transactionId) {
+            const transaction = transactions.find(t => t.id === transactionId);
+            if (!transaction) return;
+
+            const groupId = transaction.duplicateGroup;
+            const groupMembers = transactions.filter(t => t.duplicateGroup === groupId && t.id !== transactionId);
+
+            // Mark this one as legitimate
+            transaction.isDuplicateFlag = false;
+            transaction.excludeFromTotals = false;
+            delete transaction.duplicateGroup;
+
+            // If only one other remains, also mark it as legitimate
+            if (groupMembers.length === 1) {
+                groupMembers[0].isDuplicateFlag = false;
+                groupMembers[0].excludeFromTotals = false;
+                delete groupMembers[0].duplicateGroup;
+                closeDuplicatePanel();
+            } else if (groupMembers.length === 0) {
+                closeDuplicatePanel();
+            } else {
+                // Refresh the panel with remaining duplicates
+                showDuplicateResolutionPanel(groupMembers[0].id);
             }
 
             updateDashboard();
             updateTransactionsTable();
             saveUserData();
-            
-            if (choiceNum !== 4) {
-                alert('Duplicate resolved!');
-            }
         }
 
+        function deleteThisTransaction(transactionId) {
+            const transaction = transactions.find(t => t.id === transactionId);
+            if (!transaction) return;
+
+            const groupId = transaction.duplicateGroup;
+            const groupMembers = transactions.filter(t => t.duplicateGroup === groupId && t.id !== transactionId);
+
+            // Delete this transaction
+            transactions = transactions.filter(t => t.id !== transactionId);
+
+            // If only one remains, mark it as legitimate
+            if (groupMembers.length === 1) {
+                groupMembers[0].isDuplicateFlag = false;
+                groupMembers[0].excludeFromTotals = false;
+                delete groupMembers[0].duplicateGroup;
+                closeDuplicatePanel();
+            } else if (groupMembers.length === 0) {
+                closeDuplicatePanel();
+            } else {
+                // Refresh the panel with remaining duplicates
+                showDuplicateResolutionPanel(groupMembers[0].id);
+            }
+
+            updateDashboard();
+            updateTransactionsTable();
+            saveUserData();
+        }
+
+        function keepAllInGroup(groupId) {
+            transactions.forEach(t => {
+                if (t.duplicateGroup === groupId) {
+                    t.isDuplicateFlag = false;
+                    t.excludeFromTotals = false;
+                    delete t.duplicateGroup;
+                }
+            });
+
+            closeDuplicatePanel();
+            updateDashboard();
+            updateTransactionsTable();
+            saveUserData();
+        }
+
+        function deleteAllInGroup(groupId) {
+            if (confirm('Delete all transactions in this duplicate group? This cannot be undone.')) {
+                transactions = transactions.filter(t => t.duplicateGroup !== groupId);
+                
+                closeDuplicatePanel();
+                updateDashboard();
+                updateTransactionsTable();
+                saveUserData();
+            }
+        }
         function showDuplicateManager() {
             const duplicateGroups = {};
             
@@ -3483,7 +3617,23 @@ subscriptionsList.innerHTML = `
         }
 
         function deleteTransaction(id) { 
+            const transaction = transactions.find(t => t.id === id);
+            
             if (confirm('Delete this transaction?')) {
+                // If this is part of a duplicate group, resolve the others
+                if (transaction && transaction.isDuplicateFlag && transaction.duplicateGroup) {
+                    const groupId = transaction.duplicateGroup;
+                    const groupMembers = transactions.filter(t => t.duplicateGroup === groupId && t.id !== id);
+                    
+                    // If only one other transaction remains in the group, mark it as legitimate
+                    if (groupMembers.length === 1) {
+                        groupMembers[0].isDuplicateFlag = false;
+                        groupMembers[0].excludeFromTotals = false;
+                        delete groupMembers[0].duplicateGroup;
+                    }
+                    // If multiple remain, they stay flagged
+                }
+                
                 transactions = transactions.filter(t => t.id !== id);
                 updateDashboard();
                 updateTransactionsTable();
