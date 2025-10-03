@@ -386,6 +386,42 @@
                 margin: 10px;
             }
         }
+        .sortable-header {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 20px;
+}
+
+.sortable-header:hover {
+    background: #e6f2ff;
+}
+
+.sortable-header::after {
+    content: '↕';
+    position: absolute;
+    right: 5px;
+    opacity: 0.3;
+}
+
+.sortable-header.sort-asc::after {
+    content: '↑';
+    opacity: 1;
+}
+
+.sortable-header.sort-desc::after {
+    content: '↓';
+    opacity: 1;
+}
+
+.manual-archive-btn {
+    background: #f59e0b;
+    margin-left: 10px;
+}
+
+.manual-archive-btn:hover {
+    background: #d97706;
+}
     </style>
 </head>
 <body>
@@ -571,16 +607,16 @@
                 </div>
 
                 <table class="table" id="transactionsTable">
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" id="selectAllTransactions" onchange="toggleSelectAll()"></th>
-                            <th>Date</th>
-                            <th>Description</th>
-                            <th>Amount</th>
-                            <th>Category</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
+                  <thead>
+    <tr>
+        <th><input type="checkbox" id="selectAllTransactions" onchange="toggleSelectAll()"></th>
+        <th class="sortable-header" data-column="date" onclick="sortTransactions('date')">Date</th>
+        <th class="sortable-header" data-column="description" onclick="sortTransactions('description')">Description</th>
+        <th class="sortable-header" data-column="amount" onclick="sortTransactions('amount')">Amount</th>
+        <th class="sortable-header" data-column="category" onclick="sortTransactions('category')">Category</th>
+        <th>Actions</th>
+    </tr>
+</thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -751,6 +787,15 @@
             <!-- Income Variance Analysis -->
             <div class="card">
                 <h3>📊 Income Variance & Projections</h3>
+                <div style="margin-bottom: 15px; padding: 10px; background: #fff8e1; border-radius: 6px; border: 1px solid #f59e0b;">
+    <span style="font-weight: bold; color: #92400e;">💾 Archive Current Month:</span>
+    <button class="btn manual-archive-btn" onclick="manuallyArchiveCurrentMonth()" style="padding: 8px 16px;">
+        Archive Now
+    </button>
+    <small style="display: block; margin-top: 5px; color: #92400e;">
+        Manually save current month's data to projection history (normally happens automatically at month-end)
+    </small>
+</div>
                 
                 <div id="incomeVarianceDisplay">
                     <div class="variance-card" id="varianceCard">
@@ -1018,6 +1063,124 @@
         let projectionHistory = {}; // Store historical projections and actuals for accuracy tracking
         let currentUser = null;
         let firebaseReady = false;
+
+        // Add sorting state (add this with other global variables at top of script)
+let transactionSort = {
+    column: 'date',
+    direction: 'desc' // newest first by default
+};
+
+// Auto-archive completed months
+function checkAndArchiveCompletedMonths() {
+    const now = new Date();
+    const currentMonthKey = getCurrentMonthKey();
+    
+    // Get all months that have income transactions
+    const incomeTransactions = transactions.filter(t => t.amount > 0 && !t.excludeFromTotals);
+    const monthsWithIncome = {};
+    
+    incomeTransactions.forEach(t => {
+        const date = new Date(t.date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        monthsWithIncome[monthKey] = (monthsWithIncome[monthKey] || 0) + t.amount;
+    });
+    
+    // Check for completed months (not current month and not already archived)
+    let archivedCount = 0;
+    Object.keys(monthsWithIncome).forEach(monthKey => {
+        if (monthKey !== currentMonthKey && !projectionHistory[monthKey]) {
+            // This is a completed month that hasn't been archived
+            const seasonalFactor = seasonalFactors[monthKey] || 1.0;
+            
+            // Calculate 12-month rolling average up to this month
+            const priorMonths = Object.keys(monthsWithIncome)
+                .filter(m => m < monthKey && m !== currentMonthKey)
+                .sort()
+                .slice(-12);
+            
+            const rollingAvg = priorMonths.length > 0
+                ? priorMonths.reduce((sum, m) => sum + monthsWithIncome[m], 0) / priorMonths.length
+                : 0;
+            
+            const baseline = rollingAvg * seasonalFactor;
+            const conservative = baseline * 0.75;
+            const optimistic = baseline * 1.25;
+            const actual = monthsWithIncome[monthKey];
+            
+            // Auto-archive this month
+            projectionHistory[monthKey] = {
+                seasonalFactor: seasonalFactor,
+                baseline: baseline > 0 ? baseline : actual, // Use actual if no baseline available
+                conservative: conservative > 0 ? conservative : actual * 0.75,
+                optimistic: optimistic > 0 ? optimistic : actual * 1.25,
+                actual: actual,
+                accuracyType: 'vs Conservative',
+                accuracyPercentage: conservative > 0 ? Math.abs((actual - conservative) / conservative * 100) : 0,
+                vsConservativeStatus: actual >= conservative ? 'Met ✅' : 'Missed ❌',
+                autoArchived: true,
+                created: new Date().toISOString()
+            };
+            
+            archivedCount++;
+            console.log(`Auto-archived ${monthKey} with actual income: ${formatCurrency(actual)}`);
+        }
+    });
+    
+    if (archivedCount > 0) {
+        saveUserData();
+    }
+    
+    return archivedCount;
+}
+
+// Manual archive function for current month
+function manuallyArchiveCurrentMonth() {
+    const currentMonthKey = getCurrentMonthKey();
+    
+    if (projectionHistory[currentMonthKey]) {
+        if (!confirm(`${currentMonthKey} is already archived. Do you want to update it with current data?`)) {
+            return;
+        }
+    }
+    
+    const metrics = calculateIncomeMetrics();
+    
+    if (metrics.currentMonthIncome === 0) {
+        alert('No income data for current month to archive.');
+        return;
+    }
+    
+    projectionHistory[currentMonthKey] = {
+        seasonalFactor: getCurrentSeasonalFactor(),
+        baseline: metrics.baselineProjection,
+        conservative: metrics.conservativeProjection,
+        optimistic: metrics.optimisticProjection,
+        actual: metrics.currentMonthIncome,
+        accuracyType: 'vs Conservative',
+        accuracyPercentage: Math.abs(metrics.variancePercentage),
+        vsConservativeStatus: metrics.currentMonthIncome >= metrics.conservativeProjection ? 'Met ✅' : 'Missed ❌',
+        manualArchive: true,
+        created: new Date().toISOString()
+    };
+    
+    updateProjectionHistoryTable();
+    saveUserData();
+    
+    alert(`Current month (${currentMonthKey}) archived successfully with ${formatCurrency(metrics.currentMonthIncome)} actual income.`);
+}
+
+// Sort transactions
+function sortTransactions(column) {
+    // Toggle direction if clicking same column
+    if (transactionSort.column === column) {
+        transactionSort.direction = transactionSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        transactionSort.column = column;
+        transactionSort.direction = column === 'date' ? 'desc' : 'asc'; // Default newest first for date
+    }
+    
+    updateTransactionsTable();
+}
 
         // Wait for Firebase to be ready
         window.addEventListener('firebaseReady', function() {
@@ -1316,11 +1479,14 @@
 
         // Income Variance Analysis with 12-month focus and Conservative target
         function calculateIncomeMetrics() {
-            const now = new Date();
-            const currentMonthKey = getCurrentMonthKey();
-            
-            // Get income transactions only
-            const incomeTransactions = transactions.filter(t => t.amount > 0 && !t.excludeFromTotals);
+    const now = new Date();
+    const currentMonthKey = getCurrentMonthKey();
+    
+    // Check and archive any completed months first
+    checkAndArchiveCompletedMonths();
+    
+    // Get income transactions only
+    const incomeTransactions = transactions.filter(t => t.amount > 0 && !t.excludeFromTotals);
             
             if (incomeTransactions.length === 0) {
                 return {
@@ -1816,8 +1982,44 @@
             }
             
             // Sort by date (newest first)
-            filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
+// Apply sorting
+filteredTransactions.sort((a, b) => {
+    let aVal, bVal;
+    
+    switch (transactionSort.column) {
+        case 'date':
+            aVal = new Date(a.date);
+            bVal = new Date(b.date);
+            break;
+        case 'description':
+            aVal = a.description.toLowerCase();
+            bVal = b.description.toLowerCase();
+            break;
+        case 'amount':
+            aVal = a.amount;
+            bVal = b.amount;
+            break;
+        case 'category':
+            aVal = (a.category || 'Uncategorized').toLowerCase();
+            bVal = (b.category || 'Uncategorized').toLowerCase();
+            break;
+        default:
+            aVal = new Date(a.date);
+            bVal = new Date(b.date);
+    }
+    
+    if (aVal < bVal) return transactionSort.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return transactionSort.direction === 'asc' ? 1 : -1;
+    return 0;
+});
+
+// Update table headers to show sort direction
+document.querySelectorAll('.sortable-header').forEach(header => {
+    header.classList.remove('sort-asc', 'sort-desc');
+    if (header.dataset.column === transactionSort.column) {
+        header.classList.add(`sort-${transactionSort.direction}`);
+    }
+});            
             tbody.innerHTML = filteredTransactions.map(t => `
                 <tr style="${t.isDuplicateFlag ? 'background-color: #fef3cd; border-left: 4px solid #f59e0b;' : ''}">
                     <td><input type="checkbox" class="transaction-checkbox" value="${t.id}" onchange="updateBulkActions()"></td>
