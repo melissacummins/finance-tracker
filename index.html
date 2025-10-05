@@ -2096,10 +2096,25 @@ function sortTransactions(column) {
             
             // Apply search filter
             if (searchTerm) {
-                filteredTransactions = filteredTransactions.filter(t => 
-                    t.description.toLowerCase().includes(searchTerm) ||
-                    (t.category && t.category.toLowerCase().includes(searchTerm))
-                );
+                filteredTransactions = filteredTransactions.filter(t => {
+                    // Search in description
+                    if (t.description.toLowerCase().includes(searchTerm)) return true;
+                    
+                    // Search in category
+                    if (t.category && t.category.toLowerCase().includes(searchTerm)) return true;
+                    
+                    // Search by amount (both exact and partial matches)
+                    const amountStr = Math.abs(t.amount).toFixed(2);
+                    const formattedAmount = formatCurrency(t.amount).toLowerCase();
+                    
+                    // Check if search term is a number or partial number
+                    if (amountStr.includes(searchTerm.replace(/[$,]/g, ''))) return true;
+                    
+                    // Check formatted amount (with dollar sign and commas)
+                    if (formattedAmount.includes(searchTerm)) return true;
+                    
+                    return false;
+                });
             }
             
             // Apply category filter
