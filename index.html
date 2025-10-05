@@ -2614,12 +2614,13 @@ categoryFilter.innerHTML = `
             
             mappingSection.classList.remove('hidden');
 
-            const fieldMappings = [
+           const fieldMappings = [
                 { field: 'date', label: 'Date', required: true },
                 { field: 'description', label: 'Description', required: true },
-                { field: 'amount', label: 'Amount', required: true },
-                { field: 'transactionType', label: 'Transaction Type (Debit/Credit)', required: false },
-                { field: 'category', label: 'Category', required: false }
+                { field: 'amount', label: 'Amount (Debit)', required: false },
+                { field: 'creditAmount', label: 'Credit Amount (separate column)', required: false },
+                { field: 'transactionType', label: 'Transaction Type (Debit/Credit/Payment)', required: false },
+                { field: 'category', label: 'Bank Category', required: false }
             ];
 
             columnMapping.innerHTML = fieldMappings.map(mapping => `
@@ -2640,9 +2641,10 @@ categoryFilter.innerHTML = `
             const commonMappings = {
                 date: ['date', 'transaction date', 'posted date', 'trans date', 'posting date'],
                 description: ['description', 'memo', 'payee', 'merchant', 'details', 'transaction description'],
-                amount: ['amount', 'transaction amount', 'debit', 'credit', 'transaction amt'],
-                transactionType: ['transaction type', 'type', 'debit/credit', 'dr/cr', 'transaction kind'],
-                category: ['category', 'transaction category', 'classification']
+                amount: ['amount', 'transaction amount', 'debit', 'transaction amt', 'debit amount'],
+                creditAmount: ['credit', 'credit amount', 'credits', 'payment amount'],
+                transactionType: ['transaction type', 'type', 'debit/credit', 'dr/cr', 'transaction kind', 'category'],
+                category: ['bank category', 'transaction category', 'classification', 'merchant category']
             };
 
             Object.keys(commonMappings).forEach(field => {
@@ -2665,12 +2667,18 @@ categoryFilter.innerHTML = `
                 date: document.getElementById('mapping_date').value,
                 description: document.getElementById('mapping_description').value,
                 amount: document.getElementById('mapping_amount').value,
+                creditAmount: document.getElementById('mapping_creditAmount').value,
                 transactionType: document.getElementById('mapping_transactionType').value,
                 category: document.getElementById('mapping_category').value
             };
 
-            if (!mappings.date || !mappings.description || !mappings.amount) {
-                alert('Please map the required fields: Date, Description, and Amount');
+            if (!mappings.date || !mappings.description) {
+                alert('Please map the required fields: Date and Description');
+                return;
+            }
+            
+            if (!mappings.amount && !mappings.creditAmount) {
+                alert('Please map at least one amount field (Amount or Credit Amount)');
                 return;
             }
 
@@ -2685,13 +2693,20 @@ categoryFilter.innerHTML = `
             csvData.forEach((row, index) => {
                 const dateStr = row[mappings.date];
                 const description = row[mappings.description];
-                const amountStr = row[mappings.amount];
+                const amountStr = row[mappings.amount] || '';
+                const creditAmountStr = row[mappings.creditAmount] || '';
                 const transactionType = row[mappings.transactionType] || '';
                 const category = row[mappings.category] || 'Uncategorized';
 
-                if (!dateStr || !description || !amountStr) {
+                if (!dateStr || !description) {
                     skippedCount++;
-                    importErrors.push(`Row ${index + 2}: Missing required fields`);
+                    importErrors.push(`Row ${index + 2}: Missing required fields (date or description)`);
+                    return;
+                }
+                
+                if (!amountStr && !creditAmountStr) {
+                    skippedCount++;
+                    importErrors.push(`Row ${index + 2}: Missing amount value`);
                     return;
                 }
 
@@ -2729,27 +2744,64 @@ categoryFilter.innerHTML = `
                     return;
                 }
 
-                // Parse amount with better handling
-                let amount = parseFloat(amountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
-                if (isNaN(amount)) {
-                    skippedCount++;
-                    importErrors.push(`Row ${index + 2}: Invalid amount "${amountStr}"`);
-                    return;
+                // Parse amount - handle both debit and credit columns
+                let amount = 0;
+                
+                // Check if we have a credit amount column (credit card format)
+                if (creditAmountStr) {
+                    const creditValue = parseFloat(creditAmountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
+                    if (!isNaN(creditValue) && creditValue > 0) {
+                        // This is a payment/credit - make it positive (income)
+                        amount = Math.abs(creditValue);
+                    }
+                }
+                
+                // Check if we have a regular amount column (could be debit)
+                if (amountStr && amount === 0) {
+                    const debitValue = parseFloat(amountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
+                    if (!isNaN(debitValue)) {
+                        amount = debitValue;
+                    }
+                }
+                
+                // If both columns had values, prefer the credit column and make amount negative
+                if (amountStr && creditAmountStr) {
+                    const debitValue = parseFloat(amountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
+                    if (!isNaN(debitValue) && debitValue > 0 && amount === 0) {
+                        amount = -Math.abs(debitValue); // Debit = expense
+                    }
+                }
+                
+                if (isNaN(amount) || amount === 0) {
+                    // Check if both are empty
+                    if (!amountStr && !creditAmountStr) {
+                        skippedCount++;
+                        importErrors.push(`Row ${index + 2}: No amount found`);
+                        return;
+                    }
                 }
 
-                // Handle transaction type (debit/credit)
-                if (mappings.transactionType && transactionType) {
+                // Handle transaction type to determine sign (if not already determined by separate columns)
+                if (mappings.transactionType && transactionType && amount !== 0) {
                     const type = transactionType.toLowerCase();
-                    if (type.includes('debit') || type.includes('withdrawal') || type.includes('payment') || type.includes('purchase')) {
-                        amount = -Math.abs(amount); // Make negative for debits
-                    } else if (type.includes('credit') || type.includes('deposit') || type.includes('income') || type.includes('refund')) {
-                        amount = Math.abs(amount); // Make positive for credits
+                    
+                    // Check for credit/payment indicators
+                    if (type.includes('payment') || type.includes('credit') || 
+                        type.includes('deposit') || type.includes('refund') || 
+                        type.includes('return')) {
+                        amount = Math.abs(amount); // Positive for income/credits
+                    } 
+                    // Check for debit indicators
+                    else if (type.includes('debit') || type.includes('purchase') || 
+                             type.includes('withdrawal') || type.includes('sale') ||
+                             type.includes('fee')) {
+                        amount = -Math.abs(amount); // Negative for expenses/debits
                     }
-                } else {
-                    // For credit cards, flip the sign if needed (fallback)
-                    if (accountType === 'credit' && amount > 0) {
-                        amount = -amount;
-                    }
+                }
+                
+                // Final fallback: For credit cards without type column, assume positive amounts in debit column are expenses
+                if (accountType === 'credit' && !mappings.creditAmount && amount > 0) {
+                    amount = -amount;
                 }
 
                 // Apply categorization rules
