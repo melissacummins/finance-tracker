@@ -2746,62 +2746,51 @@ categoryFilter.innerHTML = `
 
                 // Parse amount - handle both debit and credit columns
                 let amount = 0;
+                let hasDebit = false;
+                let hasCredit = false;
                 
-                // Check if we have a credit amount column (credit card format)
-                if (creditAmountStr) {
+                // Parse debit column (expenses/charges)
+                if (amountStr && amountStr.trim()) {
+                    const debitValue = parseFloat(amountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
+                    if (!isNaN(debitValue) && debitValue !== 0) {
+                        amount = -Math.abs(debitValue); // Debits are negative (expenses)
+                        hasDebit = true;
+                    }
+                }
+                
+                // Parse credit column (payments/refunds)
+                if (creditAmountStr && creditAmountStr.trim()) {
                     const creditValue = parseFloat(creditAmountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
-                    if (!isNaN(creditValue) && creditValue > 0) {
-                        // This is a payment/credit - make it positive (income)
-                        amount = Math.abs(creditValue);
+                    if (!isNaN(creditValue) && creditValue !== 0) {
+                        amount = Math.abs(creditValue); // Credits are positive (income/payments)
+                        hasCredit = true;
                     }
                 }
                 
-                // Check if we have a regular amount column (could be debit)
-                if (amountStr && amount === 0) {
-                    const debitValue = parseFloat(amountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
-                    if (!isNaN(debitValue)) {
-                        amount = debitValue;
-                    }
+                // If neither column has a value, skip this row
+                if (!hasDebit && !hasCredit) {
+                    skippedCount++;
+                    importErrors.push(`Row ${index + 2}: No amount found in debit or credit columns`);
+                    return;
                 }
                 
-                // If both columns had values, prefer the credit column and make amount negative
-                if (amountStr && creditAmountStr) {
-                    const debitValue = parseFloat(amountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
-                    if (!isNaN(debitValue) && debitValue > 0 && amount === 0) {
-                        amount = -Math.abs(debitValue); // Debit = expense
-                    }
-                }
-                
-                if (isNaN(amount) || amount === 0) {
-                    // Check if both are empty
-                    if (!amountStr && !creditAmountStr) {
-                        skippedCount++;
-                        importErrors.push(`Row ${index + 2}: No amount found`);
-                        return;
-                    }
+                if (isNaN(amount)) {
+                    skippedCount++;
+                    importErrors.push(`Row ${index + 2}: Invalid amount value`);
+                    return;
                 }
 
-                // Handle transaction type to determine sign (if not already determined by separate columns)
-                if (mappings.transactionType && transactionType && amount !== 0) {
+                // Optional: Use transaction type for additional validation/categorization
+                // (The debit/credit columns already determine the sign correctly)
+                if (mappings.transactionType && transactionType) {
                     const type = transactionType.toLowerCase();
                     
-                    // Check for credit/payment indicators
-                    if (type.includes('payment') || type.includes('credit') || 
-                        type.includes('deposit') || type.includes('refund') || 
-                        type.includes('return')) {
-                        amount = Math.abs(amount); // Positive for income/credits
-                    } 
-                    // Check for debit indicators
-                    else if (type.includes('debit') || type.includes('purchase') || 
-                             type.includes('withdrawal') || type.includes('sale') ||
-                             type.includes('fee')) {
-                        amount = -Math.abs(amount); // Negative for expenses/debits
+                    // Validate that the sign matches the category
+                    if ((type.includes('payment') || type.includes('credit')) && amount < 0) {
+                        console.warn(`Row ${index + 2}: Category says "${transactionType}" but amount is in debit column`);
+                    } else if (type.includes('debit') && amount > 0) {
+                        console.warn(`Row ${index + 2}: Category says "${transactionType}" but amount is in credit column`);
                     }
-                }
-                
-                // Final fallback: For credit cards without type column, assume positive amounts in debit column are expenses
-                if (accountType === 'credit' && !mappings.creditAmount && amount > 0) {
-                    amount = -amount;
                 }
 
                 // Apply categorization rules
