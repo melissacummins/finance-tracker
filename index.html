@@ -1514,6 +1514,7 @@ function sortTransactions(column) {
                 const descLower = description.toLowerCase();
 
                 // Check pattern matching first (highest priority)
+                // If a pattern is set, ONLY use pattern matching (don't fall through to other methods)
                 if (subscription.pattern && subscription.pattern.type && subscription.pattern.value) {
                     const patternValue = subscription.pattern.value.toLowerCase();
                     let patternMatch = false;
@@ -1533,20 +1534,19 @@ function sortTransactions(column) {
                             break;
                     }
 
-                    if (patternMatch) {
-                        return true;
-                    }
+                    // When pattern is set, return the pattern match result exclusively
+                    return patternMatch;
                 }
 
-                // Check aliases
-                if (subscription.aliases && subscription.aliases.some(alias =>
+                // Check aliases (only if no pattern is set)
+                if (subscription.aliases && subscription.aliases.length > 0 && subscription.aliases.some(alias =>
                     normalized.includes(alias.toLowerCase()) ||
                     alias.toLowerCase().includes(keywords)
                 )) {
                     return true;
                 }
 
-                // Check vendor name similarity
+                // Check vendor name similarity (only if no pattern or aliases match)
                 const subNormalized = normalizeSubscriptionName(subscription.vendor);
                 const subKeywords = extractVendorKeywords(subscription.vendor);
 
@@ -1557,6 +1557,10 @@ function sortTransactions(column) {
 
                 return keywordMatch;
             });
+
+            // Log for debugging
+            console.log(`Variable subscription "${subscription.vendor}" matched ${matchingTransactions.length} transactions:`,
+                matchingTransactions.map(t => ({ desc: t.description, amount: Math.abs(t.amount) })));
 
             // Calculate average
             if (matchingTransactions.length === 0) {
@@ -1569,6 +1573,8 @@ function sortTransactions(column) {
 
             const total = matchingTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
             const average = total / matchingTransactions.length;
+
+            console.log(`Average for "${subscription.vendor}": ${average} (from ${matchingTransactions.length} transactions)`);
 
             return {
                 average: average,
@@ -3242,8 +3248,11 @@ document.querySelectorAll('.sortable-header').forEach(header => {
         function populateSubscriptionCategories(selectId) {
             const select = document.getElementById(selectId);
             if (!select) return;
-            
-            select.innerHTML = categories.expense.map(cat => 
+
+            // Sort categories alphabetically
+            const sortedCategories = [...categories.expense].sort((a, b) => a.localeCompare(b));
+
+            select.innerHTML = sortedCategories.map(cat =>
                 `<option value="${cat}">${cat}</option>`
             ).join('');
         }
