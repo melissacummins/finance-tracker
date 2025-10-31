@@ -775,6 +775,20 @@
                         <input type="text" id="newSubAliases" class="form-control" placeholder="e.g., NFLX, Netflix.com, Netflix Inc">
                         <small style="color: #718096;">Alternative names that might appear on your statement</small>
                     </div>
+                    <div class="form-group">
+                        <label>Matching Pattern (optional, for descriptions with random characters)</label>
+                        <div class="grid">
+                            <select id="newSubPatternType" class="form-control">
+                                <option value="">No pattern</option>
+                                <option value="contains">Contains</option>
+                                <option value="starts_with">Starts with</option>
+                                <option value="ends_with">Ends with</option>
+                                <option value="equals">Equals</option>
+                            </select>
+                            <input type="text" id="newSubPatternValue" class="form-control" placeholder="e.g., Kindle Unltd">
+                        </div>
+                        <small style="color: #718096;">Use this to match descriptions like "Kindle Unltd*N43Z31ID1" - set pattern to "starts with" and value to "Kindle Unltd"</small>
+                    </div>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
                         <button class="btn" onclick="saveNewSubscription()">Save Subscription</button>
                         <button class="btn btn-secondary" onclick="cancelAddSubscription()">Cancel</button>
@@ -814,6 +828,20 @@
                         <label>Aliases (comma-separated)</label>
                         <input type="text" id="editSubAliases" class="form-control">
                         <small style="color: #718096;">Alternative names that might appear on your statement</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Matching Pattern (optional, for descriptions with random characters)</label>
+                        <div class="grid">
+                            <select id="editSubPatternType" class="form-control">
+                                <option value="">No pattern</option>
+                                <option value="contains">Contains</option>
+                                <option value="starts_with">Starts with</option>
+                                <option value="ends_with">Ends with</option>
+                                <option value="equals">Equals</option>
+                            </select>
+                            <input type="text" id="editSubPatternValue" class="form-control" placeholder="e.g., Kindle Unltd">
+                        </div>
+                        <small style="color: #718096;">Use this to match descriptions like "Kindle Unltd*N43Z31ID1" - set pattern to "starts with" and value to "Kindle Unltd"</small>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
                         <button class="btn" onclick="saveSubscriptionEdit()">Save Changes</button>
@@ -1406,28 +1434,54 @@ function sortTransactions(column) {
         function findSimilarSubscription(description, amount) {
             const normalized = normalizeSubscriptionName(description);
             const keywords = extractVendorKeywords(description);
-            
+            const descLower = description.toLowerCase();
+
             return subscriptions.find(sub => {
-                // Check aliases first
-                if (sub.aliases && sub.aliases.some(alias => 
-                    normalized.includes(alias.toLowerCase()) || 
+                // Check pattern matching first (highest priority)
+                if (sub.pattern && sub.pattern.type && sub.pattern.value) {
+                    const patternValue = sub.pattern.value.toLowerCase();
+                    let patternMatch = false;
+
+                    switch (sub.pattern.type) {
+                        case 'contains':
+                            patternMatch = descLower.includes(patternValue);
+                            break;
+                        case 'starts_with':
+                            patternMatch = descLower.startsWith(patternValue);
+                            break;
+                        case 'ends_with':
+                            patternMatch = descLower.endsWith(patternValue);
+                            break;
+                        case 'equals':
+                            patternMatch = descLower === patternValue;
+                            break;
+                    }
+
+                    if (patternMatch) {
+                        return true;
+                    }
+                }
+
+                // Check aliases
+                if (sub.aliases && sub.aliases.some(alias =>
+                    normalized.includes(alias.toLowerCase()) ||
                     alias.toLowerCase().includes(keywords)
                 )) {
                     return true;
                 }
-                
+
                 // Check vendor name similarity
                 const subNormalized = normalizeSubscriptionName(sub.vendor);
                 const subKeywords = extractVendorKeywords(sub.vendor);
-                
-                const keywordMatch = keywords.includes(subKeywords) || 
+
+                const keywordMatch = keywords.includes(subKeywords) ||
                                    subKeywords.includes(keywords) ||
-                                   normalized.includes(subNormalized) || 
+                                   normalized.includes(subNormalized) ||
                                    subNormalized.includes(normalized);
-                
+
                 // Amount should be within 50% (allows for price changes)
                 const amountSimilar = Math.abs(sub.amount - amount) / Math.max(sub.amount, amount) < 0.5;
-                
+
                 return keywordMatch && amountSimilar;
             });
         }
@@ -3088,13 +3142,15 @@ categoryFilter.innerHTML = `
                 // Show form and populate categories
                 form.classList.remove('hidden');
                 populateSubscriptionCategories('newSubCategory');
-                
+
                 // Clear form
                 document.getElementById('newSubVendor').value = '';
                 document.getElementById('newSubAmount').value = '';
                 document.getElementById('newSubFrequency').value = 'monthly';
                 document.getElementById('newSubAliases').value = '';
-                
+                document.getElementById('newSubPatternType').value = '';
+                document.getElementById('newSubPatternValue').value = '';
+
                 // Scroll to form
                 form.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
@@ -3117,20 +3173,29 @@ categoryFilter.innerHTML = `
             const frequency = document.getElementById('newSubFrequency').value;
             const category = document.getElementById('newSubCategory').value;
             const aliasesStr = document.getElementById('newSubAliases').value.trim();
-            
+            const patternType = document.getElementById('newSubPatternType').value;
+            const patternValue = document.getElementById('newSubPatternValue').value.trim();
+
             // Validation
             if (!vendor) {
                 alert('Please enter a vendor/service name');
                 document.getElementById('newSubVendor').focus();
                 return;
             }
-            
+
             if (isNaN(amount) || amount <= 0) {
                 alert('Please enter a valid amount');
                 document.getElementById('newSubAmount').focus();
                 return;
             }
-            
+
+            // Validate pattern
+            if (patternType && !patternValue) {
+                alert('Please enter a pattern value or clear the pattern type');
+                document.getElementById('newSubPatternValue').focus();
+                return;
+            }
+
             // Parse aliases
             const aliases = aliasesStr ? aliasesStr.split(',').map(a => a.trim()).filter(a => a) : [];
 
@@ -3145,16 +3210,17 @@ categoryFilter.innerHTML = `
                 autoDetected: false,
                 aliases: aliases,
                 suggestedAliases: [],
+                pattern: patternType && patternValue ? { type: patternType, value: patternValue } : null,
                 created: new Date().toISOString()
             };
 
             subscriptions.push(subscription);
             updateSubscriptionsView();
             saveUserData();
-            
+
             // Hide form
             document.getElementById('addSubscriptionForm').classList.add('hidden');
-            
+
             alert(`Subscription "${vendor}" added successfully!`);
         }
 
@@ -3183,10 +3249,12 @@ categoryFilter.innerHTML = `
             document.getElementById('editSubFrequency').value = subscription.frequency;
             document.getElementById('editSubCategory').value = subscription.category;
             document.getElementById('editSubAliases').value = (subscription.aliases || []).join(', ');
-            
+            document.getElementById('editSubPatternType').value = subscription.pattern ? subscription.pattern.type : '';
+            document.getElementById('editSubPatternValue').value = subscription.pattern ? subscription.pattern.value : '';
+
             // Store ID for saving
             form.setAttribute('data-editing-id', subscriptionId);
-            
+
             // Scroll to form
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -3206,18 +3274,26 @@ categoryFilter.innerHTML = `
             const frequency = document.getElementById('editSubFrequency').value;
             const category = document.getElementById('editSubCategory').value;
             const aliasesStr = document.getElementById('editSubAliases').value.trim();
-            
+            const patternType = document.getElementById('editSubPatternType').value;
+            const patternValue = document.getElementById('editSubPatternValue').value.trim();
+
             // Validation
             if (!vendor) {
                 alert('Please enter a vendor/service name');
                 return;
             }
-            
+
             if (isNaN(amount) || amount <= 0) {
                 alert('Please enter a valid amount');
                 return;
             }
-            
+
+            // Validate pattern
+            if (patternType && !patternValue) {
+                alert('Please enter a pattern value or clear the pattern type');
+                return;
+            }
+
             // Parse aliases
             const aliases = aliasesStr ? aliasesStr.split(',').map(a => a.trim()).filter(a => a) : [];
 
@@ -3227,6 +3303,7 @@ categoryFilter.innerHTML = `
             subscription.frequency = frequency;
             subscription.category = category;
             subscription.aliases = aliases;
+            subscription.pattern = patternType && patternValue ? { type: patternType, value: patternValue } : null;
             subscription.nextCharge = calculateNextCharge(frequency);
             subscription.updated = new Date().toISOString();
 
@@ -3382,6 +3459,13 @@ subscriptionsList.innerHTML = `
                                 ${sub.aliases && sub.aliases.length > 0 ? `
                                     <div style="margin-top: 5px;">
                                         ${sub.aliases.map(alias => `<span class="alias-tag">${alias}</span>`).join('')}
+                                    </div>
+                                ` : ''}
+                                ${sub.pattern && sub.pattern.value ? `
+                                    <div style="margin-top: 5px;">
+                                        <span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">
+                                            📋 Pattern: ${sub.pattern.type.replace('_', ' ')} "${sub.pattern.value}"
+                                        </span>
                                     </div>
                                 ` : ''}
                                 ${sub.suggestedAliases && sub.suggestedAliases.length > 0 ? `
