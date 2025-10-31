@@ -2748,48 +2748,63 @@ categoryFilter.innerHTML = `
                 let amount = 0;
                 let hasDebit = false;
                 let hasCredit = false;
-                
+                let hasAmount = false;
+
                 // Parse debit column (expenses/charges)
                 if (amountStr && amountStr.trim()) {
                     const debitValue = parseFloat(amountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
                     if (!isNaN(debitValue) && debitValue !== 0) {
                         amount = -Math.abs(debitValue); // Debits are negative (expenses)
                         hasDebit = true;
+                        hasAmount = true;
                     }
                 }
-                
+
                 // Parse credit column (payments/refunds)
                 if (creditAmountStr && creditAmountStr.trim()) {
                     const creditValue = parseFloat(creditAmountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
                     if (!isNaN(creditValue) && creditValue !== 0) {
                         amount = Math.abs(creditValue); // Credits are positive (income/payments)
                         hasCredit = true;
+                        hasAmount = true;
                     }
                 }
-                
+
                 // If neither column has a value, skip this row
-                if (!hasDebit && !hasCredit) {
+                if (!hasAmount) {
                     skippedCount++;
                     importErrors.push(`Row ${index + 2}: No amount found in debit or credit columns`);
                     return;
                 }
-                
+
                 if (isNaN(amount)) {
                     skippedCount++;
                     importErrors.push(`Row ${index + 2}: Invalid amount value`);
                     return;
                 }
 
-                // Optional: Use transaction type for additional validation/categorization
-                // (The debit/credit columns already determine the sign correctly)
+                // Use transaction type to determine sign when applicable
+                // This handles CSVs with a single amount column and a type column indicating debit/credit
                 if (mappings.transactionType && transactionType) {
                     const type = transactionType.toLowerCase();
-                    
-                    // Validate that the sign matches the category
-                    if ((type.includes('payment') || type.includes('credit')) && amount < 0) {
-                        console.warn(`Row ${index + 2}: Category says "${transactionType}" but amount is in debit column`);
-                    } else if (type.includes('debit') && amount > 0) {
-                        console.warn(`Row ${index + 2}: Category says "${transactionType}" but amount is in credit column`);
+
+                    // If both separate debit and credit columns exist, just validate
+                    if (hasDebit && hasCredit) {
+                        // Validate that the sign matches the category
+                        if ((type.includes('payment') || type.includes('credit')) && amount < 0) {
+                            console.warn(`Row ${index + 2}: Category says "${transactionType}" but amount is in debit column`);
+                        } else if (type.includes('debit') && amount > 0) {
+                            console.warn(`Row ${index + 2}: Category says "${transactionType}" but amount is in credit column`);
+                        }
+                    } else {
+                        // Single amount column - use transaction type to determine sign
+                        if (type.includes('credit') || type.includes('payment') || type.includes('deposit')) {
+                            // Credits/deposits should be positive (income)
+                            amount = Math.abs(amount);
+                        } else if (type.includes('debit') || type.includes('withdrawal') || type.includes('charge')) {
+                            // Debits/withdrawals should be negative (expenses)
+                            amount = -Math.abs(amount);
+                        }
                     }
                 }
 
