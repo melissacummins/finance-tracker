@@ -511,7 +511,7 @@
                     <div class="stat-value" id="netCashFlow">$0</div>
                     <div class="stat-label">Net Cash Flow</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" onclick="showUncategorizedTransactions()" style="cursor: pointer;" title="Click to view uncategorized transactions">
                     <div class="stat-value" id="uncategorizedCount">0</div>
                     <div class="stat-label">Uncategorized Transactions</div>
                 </div>
@@ -1751,11 +1751,65 @@ function sortTransactions(column) {
             
             document.getElementById(tabName).classList.add('active');
             event.target.classList.add('active');
-            
+
+            // Update category filter when showing transactions tab
+            if (tabName === 'transactions') {
+                populateCategoryFilter();
+            }
+
             // Update income analysis when cash flow tab is shown
             if (tabName === 'cashflow') {
                 updateIncomeVarianceAnalysis();
                 updateProjectionHistoryTable();
+            }
+        }
+
+        function showUncategorizedTransactions() {
+            // Switch to transactions tab
+            showTab('transactions');
+
+            // Set the category filter to uncategorized
+            const categoryFilter = document.getElementById('categoryFilter');
+            if (categoryFilter) {
+                categoryFilter.value = 'uncategorized';
+                updateTransactionsTable();
+            }
+
+            // Highlight the active tab
+            document.querySelectorAll('.nav-tab').forEach((tab, index) => {
+                if (tab.textContent.trim() === 'Transactions') {
+                    tab.classList.add('active');
+                }
+            });
+        }
+
+        function populateCategoryFilter() {
+            const categoryFilter = document.getElementById('categoryFilter');
+            if (!categoryFilter) return;
+
+            const currentValue = categoryFilter.value;
+
+            // Sort categories alphabetically
+            const sortedIncome = [...categories.income].sort((a, b) => a.localeCompare(b));
+            const sortedExpense = [...categories.expense].sort((a, b) => a.localeCompare(b));
+
+            // Build the options HTML
+            let optionsHTML = `
+                <option value="">All Categories</option>
+                <option value="uncategorized">Uncategorized Only</option>
+                <optgroup label="Income Categories">
+                    ${sortedIncome.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                </optgroup>
+                <optgroup label="Expense Categories">
+                    ${sortedExpense.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                </optgroup>
+            `;
+
+            categoryFilter.innerHTML = optionsHTML;
+
+            // Restore previous selection if it still exists
+            if (currentValue) {
+                categoryFilter.value = currentValue;
             }
         }
 
@@ -2438,8 +2492,12 @@ categoryFilter.innerHTML = `
         function updateCategoriesView() {
             const incomeContainer = document.getElementById('incomeCategories');
             const expenseContainer = document.getElementById('expenseCategories');
-            
-            incomeContainer.innerHTML = categories.income.map((cat, index) => `
+
+            // Sort categories alphabetically
+            const sortedIncome = [...categories.income].sort((a, b) => a.localeCompare(b));
+            const sortedExpense = [...categories.expense].sort((a, b) => a.localeCompare(b));
+
+            incomeContainer.innerHTML = sortedIncome.map((cat, index) => `
                 <div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
                     <span id="income-cat-${index}">${cat}</span>
                     <div style="display: flex; gap: 5px;">
@@ -2448,8 +2506,8 @@ categoryFilter.innerHTML = `
                     </div>
                 </div>
             `).join('');
-            
-            expenseContainer.innerHTML = categories.expense.map((cat, index) => `
+
+            expenseContainer.innerHTML = sortedExpense.map((cat, index) => `
                 <div style="padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
                     <span id="expense-cat-${index}">${cat}</span>
                     <div style="display: flex; gap: 5px;">
@@ -3309,7 +3367,7 @@ subscriptionsList.innerHTML = `
 
                 <div class="card">
                     <h4>Active Subscriptions</h4>
-                    ${subscriptions.filter(sub => sub.status === 'active').map(sub => `
+                    ${subscriptions.filter(sub => sub.status === 'active').sort((a, b) => a.vendor.localeCompare(b.vendor)).map(sub => `
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #e2e8f0;">
                             <div>
                                 <strong>${sub.vendor}</strong>
@@ -3345,7 +3403,7 @@ subscriptionsList.innerHTML = `
                 ${subscriptions.filter(sub => sub.status !== 'active').length > 0 ? `
                     <div class="card">
                         <h4>Paused/Cancelled Subscriptions</h4>
-                        ${subscriptions.filter(sub => sub.status !== 'active').map(sub => `
+                        ${subscriptions.filter(sub => sub.status !== 'active').sort((a, b) => a.vendor.localeCompare(b.vendor)).map(sub => `
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #e2e8f0; opacity: 0.7;">
                                 <div>
                                     <strong>${sub.vendor}</strong>
@@ -3992,8 +4050,11 @@ subscriptionsList.innerHTML = `
 
         function updateRulesView() {
             const rulesList = document.getElementById('rulesList');
-            
-            rulesList.innerHTML = rules.length ? rules.map(rule => `
+
+            // Sort rules alphabetically by name
+            const sortedRules = [...rules].sort((a, b) => a.name.localeCompare(b.name));
+
+            rulesList.innerHTML = sortedRules.length ? sortedRules.map(rule => `
                 <div class="card" style="margin-bottom: 15px; ${!rule.active ? 'opacity: 0.6;' : ''}">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="flex: 1;">
