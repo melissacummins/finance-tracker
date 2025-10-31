@@ -2760,11 +2760,11 @@ categoryFilter.innerHTML = `
                     }
                 }
 
-                // Parse credit column (payments made, e.g., to credit cards)
+                // Parse credit column (payments/income coming in)
                 if (creditAmountStr && creditAmountStr.trim()) {
                     const creditValue = parseFloat(creditAmountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
                     if (!isNaN(creditValue) && creditValue !== 0) {
-                        amount = -Math.abs(creditValue); // Credit amount = payments out (expenses)
+                        amount = Math.abs(creditValue); // Credits are positive (income/payments in)
                         hasCredit = true;
                         hasAmount = true;
                     }
