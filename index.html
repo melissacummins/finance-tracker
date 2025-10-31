@@ -789,6 +789,13 @@
                         </div>
                         <small style="color: #718096;">Use this to match descriptions like "Kindle Unltd*N43Z31ID1" - set pattern to "starts with" and value to "Kindle Unltd"</small>
                     </div>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="newSubIsVariable" style="width: auto; cursor: pointer;">
+                            <span>Variable Amount Subscription</span>
+                        </label>
+                        <small style="color: #718096;">Check this if the subscription amount varies each month (e.g., PA services, Shopify). The system will calculate and display an average amount based on all matching transactions.</small>
+                    </div>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
                         <button class="btn" onclick="saveNewSubscription()">Save Subscription</button>
                         <button class="btn btn-secondary" onclick="cancelAddSubscription()">Cancel</button>
@@ -842,6 +849,13 @@
                             <input type="text" id="editSubPatternValue" class="form-control" placeholder="e.g., Kindle Unltd">
                         </div>
                         <small style="color: #718096;">Use this to match descriptions like "Kindle Unltd*N43Z31ID1" - set pattern to "starts with" and value to "Kindle Unltd"</small>
+                    </div>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="editSubIsVariable" style="width: auto; cursor: pointer;">
+                            <span>Variable Amount Subscription</span>
+                        </label>
+                        <small style="color: #718096;">Check this if the subscription amount varies each month (e.g., PA services, Shopify). The system will calculate and display an average amount based on all matching transactions.</small>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
                         <button class="btn" onclick="saveSubscriptionEdit()">Save Changes</button>
@@ -1484,6 +1498,83 @@ function sortTransactions(column) {
 
                 return keywordMatch && amountSimilar;
             });
+        }
+
+        function calculateVariableSubscriptionAverage(subscription) {
+            // Find all transactions that match this subscription
+            const matchingTransactions = transactions.filter(transaction => {
+                if (transaction.amount >= 0) return false; // Only expenses (negative amounts)
+
+                const description = transaction.description;
+                const amount = Math.abs(transaction.amount);
+
+                // Use the same matching logic as findSimilarSubscription
+                const normalized = normalizeSubscriptionName(description);
+                const keywords = extractVendorKeywords(description);
+                const descLower = description.toLowerCase();
+
+                // Check pattern matching first (highest priority)
+                if (subscription.pattern && subscription.pattern.type && subscription.pattern.value) {
+                    const patternValue = subscription.pattern.value.toLowerCase();
+                    let patternMatch = false;
+
+                    switch (subscription.pattern.type) {
+                        case 'contains':
+                            patternMatch = descLower.includes(patternValue);
+                            break;
+                        case 'starts_with':
+                            patternMatch = descLower.startsWith(patternValue);
+                            break;
+                        case 'ends_with':
+                            patternMatch = descLower.endsWith(patternValue);
+                            break;
+                        case 'equals':
+                            patternMatch = descLower === patternValue;
+                            break;
+                    }
+
+                    if (patternMatch) {
+                        return true;
+                    }
+                }
+
+                // Check aliases
+                if (subscription.aliases && subscription.aliases.some(alias =>
+                    normalized.includes(alias.toLowerCase()) ||
+                    alias.toLowerCase().includes(keywords)
+                )) {
+                    return true;
+                }
+
+                // Check vendor name similarity
+                const subNormalized = normalizeSubscriptionName(subscription.vendor);
+                const subKeywords = extractVendorKeywords(subscription.vendor);
+
+                const keywordMatch = keywords.includes(subKeywords) ||
+                                   subKeywords.includes(keywords) ||
+                                   normalized.includes(subNormalized) ||
+                                   subNormalized.includes(normalized);
+
+                return keywordMatch;
+            });
+
+            // Calculate average
+            if (matchingTransactions.length === 0) {
+                return {
+                    average: subscription.amount,
+                    count: 0,
+                    total: 0
+                };
+            }
+
+            const total = matchingTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+            const average = total / matchingTransactions.length;
+
+            return {
+                average: average,
+                count: matchingTransactions.length,
+                total: total
+            };
         }
 
         function detectSubscription(transaction, detectedSubscriptions) {
@@ -3241,6 +3332,7 @@ document.querySelectorAll('.sortable-header').forEach(header => {
             const aliasesStr = document.getElementById('newSubAliases').value.trim();
             const patternType = document.getElementById('newSubPatternType').value;
             const patternValue = document.getElementById('newSubPatternValue').value.trim();
+            const isVariable = document.getElementById('newSubIsVariable').checked;
 
             // Validation
             if (!vendor) {
@@ -3277,6 +3369,7 @@ document.querySelectorAll('.sortable-header').forEach(header => {
                 aliases: aliases,
                 suggestedAliases: [],
                 pattern: patternType && patternValue ? { type: patternType, value: patternValue } : null,
+                isVariable: isVariable,
                 created: new Date().toISOString()
             };
 
@@ -3321,6 +3414,7 @@ document.querySelectorAll('.sortable-header').forEach(header => {
             document.getElementById('editSubAliases').value = (subscription.aliases || []).join(', ');
             document.getElementById('editSubPatternType').value = subscription.pattern ? subscription.pattern.type : '';
             document.getElementById('editSubPatternValue').value = subscription.pattern ? subscription.pattern.value : '';
+            document.getElementById('editSubIsVariable').checked = subscription.isVariable || false;
 
             // Store ID for saving
             form.setAttribute('data-editing-id', subscriptionId);
@@ -3346,6 +3440,7 @@ document.querySelectorAll('.sortable-header').forEach(header => {
             const aliasesStr = document.getElementById('editSubAliases').value.trim();
             const patternType = document.getElementById('editSubPatternType').value;
             const patternValue = document.getElementById('editSubPatternValue').value.trim();
+            const isVariable = document.getElementById('editSubIsVariable').checked;
 
             // Validation
             if (!vendor) {
@@ -3374,6 +3469,7 @@ document.querySelectorAll('.sortable-header').forEach(header => {
             subscription.category = category;
             subscription.aliases = aliases;
             subscription.pattern = patternType && patternValue ? { type: patternType, value: patternValue } : null;
+            subscription.isVariable = isVariable;
             subscription.nextCharge = calculateNextCharge(frequency);
             subscription.updated = new Date().toISOString();
 
@@ -3436,11 +3532,13 @@ const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 const monthlyTotal = subscriptions
     .filter(sub => sub.status === 'active')
     .reduce((total, sub) => {
+        // Use average for variable subscriptions
+        const amount = sub.isVariable ? calculateVariableSubscriptionAverage(sub).average : sub.amount;
         switch (sub.frequency) {
-            case 'monthly': return total + sub.amount;
-            case 'quarterly': return total + (sub.amount / 3);
-            case 'annual': return total + (sub.amount / 12);
-            default: return total + sub.amount;
+            case 'monthly': return total + amount;
+            case 'quarterly': return total + (amount / 3);
+            case 'annual': return total + (amount / 12);
+            default: return total + amount;
         }
     }, 0);
 
@@ -3455,7 +3553,10 @@ const upcomingCharges = subscriptions
     })
     .sort((a, b) => new Date(a.nextCharge) - new Date(b.nextCharge));
 
-const upcomingTotal = upcomingCharges.reduce((total, sub) => total + sub.amount, 0);
+const upcomingTotal = upcomingCharges.reduce((total, sub) => {
+    const amount = sub.isVariable ? calculateVariableSubscriptionAverage(sub).average : sub.amount;
+    return total + amount;
+}, 0);
 
 // Get current month income
 const metrics = calculateIncomeMetrics();
@@ -3499,33 +3600,42 @@ subscriptionsList.innerHTML = `
                 }
             </div>
             
-            ${upcomingCharges.map(sub => `
+            ${upcomingCharges.map(sub => {
+                const amount = sub.isVariable ? calculateVariableSubscriptionAverage(sub).average : sub.amount;
+                return `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #e2e8f0; background: white; margin-bottom: 5px; border-radius: 4px;">
                     <div>
                         <strong>${sub.vendor}</strong>
+                        ${sub.isVariable ? '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; margin-left: 5px;">avg</span>' : ''}
                         <div style="font-size: 0.8em; color: #718096;">
                             Due: ${formatDate(sub.nextCharge)}
                         </div>
                     </div>
                     <div style="font-weight: bold; color: #e53e3e;">
-                        ${formatCurrency(sub.amount)}
+                        ${formatCurrency(amount)}
                     </div>
                 </div>
-            `).join('')}
+                `;
+            }).join('')}
         </div>
     ` : ''}
 
                 <div class="card">
                     <h4>Active Subscriptions</h4>
-                    ${subscriptions.filter(sub => sub.status === 'active').sort((a, b) => a.vendor.localeCompare(b.vendor)).map(sub => `
+                    ${subscriptions.filter(sub => sub.status === 'active').sort((a, b) => a.vendor.localeCompare(b.vendor)).map(sub => {
+                        const variableData = sub.isVariable ? calculateVariableSubscriptionAverage(sub) : null;
+                        const displayAmount = variableData ? variableData.average : sub.amount;
+                        return `
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #e2e8f0;">
                             <div>
                                 <strong>${sub.vendor}</strong>
                                 ${sub.autoDetected ? '<span style="background: #e6fffa; color: #234e52; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 10px;">Auto-detected</span>' : ''}
                                 ${sub.priceChanged ? '<span style="background: #fed7d7; color: #742a2a; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 5px;">Price Changed</span>' : ''}
+                                ${sub.isVariable ? '<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 5px;">Variable</span>' : ''}
                                 <br>
                                 <small style="color: #718096;">
-                                    ${formatCurrency(sub.amount)} ${sub.frequency} • ${sub.category}
+                                    ${formatCurrency(displayAmount)} ${sub.frequency} • ${sub.category}
+                                    ${sub.isVariable && variableData ? ` • <span style="font-style: italic;">Avg of ${variableData.count} transaction${variableData.count !== 1 ? 's' : ''}</span>` : ''}
                                     ${sub.nextCharge ? ` • Next: ${formatDate(sub.nextCharge)}` : ''}
                                     ${sub.lastCharge ? ` • Last: ${formatDate(sub.lastCharge)}` : ''}
                                 </small>
@@ -3554,7 +3664,8 @@ subscriptionsList.innerHTML = `
                                 <button class="btn btn-danger" onclick="deleteSubscription('${sub.id}')" style="padding: 5px 10px; margin: 2px;">Delete</button>
                             </div>
                         </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
 
                 ${subscriptions.filter(sub => sub.status !== 'active').length > 0 ? `
