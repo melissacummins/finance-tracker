@@ -2760,11 +2760,11 @@ categoryFilter.innerHTML = `
                     }
                 }
 
-                // Parse credit column (payments/refunds)
+                // Parse credit column (payments made, e.g., to credit cards)
                 if (creditAmountStr && creditAmountStr.trim()) {
                     const creditValue = parseFloat(creditAmountStr.replace(/[$,\s()]/g, '').replace(/[^\d.-]/g, ''));
                     if (!isNaN(creditValue) && creditValue !== 0) {
-                        amount = Math.abs(creditValue); // Credits are positive (income/payments)
+                        amount = -Math.abs(creditValue); // Credit amount = payments out (expenses)
                         hasCredit = true;
                         hasAmount = true;
                     }
@@ -2788,21 +2788,24 @@ categoryFilter.innerHTML = `
                 if (mappings.transactionType && transactionType) {
                     const type = transactionType.toLowerCase();
 
-                    // If both separate debit and credit columns exist, just validate
-                    if (hasDebit && hasCredit) {
-                        // Validate that the sign matches the category
-                        if ((type.includes('payment') || type.includes('credit')) && amount < 0) {
-                            console.warn(`Row ${index + 2}: Category says "${transactionType}" but amount is in debit column`);
-                        } else if (type.includes('debit') && amount > 0) {
+                    // If using separate debit/credit columns, don't override their signs
+                    // Only use transaction type when there's a single amount column (not separate debit/credit columns)
+                    const usingSeparateColumns = (mappings.amount && mappings.creditAmount);
+
+                    if (usingSeparateColumns) {
+                        // Just validate, don't change the sign (column determines sign)
+                        if ((type.includes('payment') || type.includes('credit')) && amount < 0 && hasCredit) {
                             console.warn(`Row ${index + 2}: Category says "${transactionType}" but amount is in credit column`);
+                        } else if (type.includes('debit') && amount > 0 && hasDebit) {
+                            console.warn(`Row ${index + 2}: Category says "${transactionType}" but amount is in debit column`);
                         }
                     } else {
                         // Single amount column - use transaction type to determine sign
-                        if (type.includes('credit') || type.includes('payment') || type.includes('deposit')) {
+                        if (type.includes('credit') || type.includes('deposit')) {
                             // Credits/deposits should be positive (income)
                             amount = Math.abs(amount);
-                        } else if (type.includes('debit') || type.includes('withdrawal') || type.includes('charge')) {
-                            // Debits/withdrawals should be negative (expenses)
+                        } else if (type.includes('debit') || type.includes('withdrawal') || type.includes('charge') || type.includes('payment')) {
+                            // Debits/withdrawals/payments should be negative (expenses)
                             amount = -Math.abs(amount);
                         }
                     }
